@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Practice Mode - Spa{% endblock %}
+
+{% block content %}
+<div class="practice-container">
+    <h1>Practice Mode Setup</h1>
+    
+    <div class="practice-form">
+        <form id="practice-setup-form">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="num-bots" class="form-label">Number of Bots</label>
+                <select id="num-bots" name="num_bots" class="form-select">
+                    <option value="1">1 Bot (1v1)</option>
+                    <option value="2">2 Bots (3 Players)</option>
+                    <option value="3" selected>3 Bots (4 Players)</option>
+                </select>
+            </div>
+            
+            <div id="bot-difficulty-selectors" class="bot-difficulty-selectors">
+                <!-- Dynamically generated -->
+            </div>
+            
+            <div class="form-group">
+                <label for="target-score" class="form-label">Target Score</label>
+                <select id="target-score" name="target_score" class="form-select">
+                    <option value="12" selected>12 Points (Quick)</option>
+                    <option value="18">18 Points (Medium)</option>
+                    <option value="24">24 Points (Long)</option>
+                </select>
+            </div>
+            
+            <div id="error-message" class="form-error" style="display: none;"></div>
+            
+            <button type="submit" class="btn btn-primary btn-block btn-lg">
+                Start Practice Game
+            </button>
+            
+            <a href="{% url 'frontend:game_modes' %}" class="btn btn-secondary btn-block">
+                Back to Modes
+            </a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/lobby/practice.js' %}"></script>
+{% endblock %}

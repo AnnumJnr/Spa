@@ -1,0 +1,12 @@
+Django
+djangorestframework
+channels
+djangorestframework-simplejwt
+django-cors-headers
+
+pytest
+pytest-django
+pytest-asyncio
+black
+flake8
+daphne

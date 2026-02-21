@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/game.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Pass Django context to JavaScript -->
+<script>
+    window.GAME_CONFIG = {
+        gameId: "{{ game_id }}",
+        playerId: "{{ player_id }}",
+        guestName: "{{ guest_name }}",
+        isGuest: {% if is_guest %}true{% else %}false{% endif %},
+        wsProtocol: window.location.protocol === 'https:' ? 'wss:' : 'ws:',
+        wsHost: window.location.host
+    };
+</script>
+
+<div class="game-container">
+    <!-- Opponents Area (Top) -->
+    <div class="opponents-area">
+        <div id="opponents">
+            <!-- Opponents will be rendered here by board.js -->
+        </div>
+    </div>
+
+    <!-- Table Center (Middle) -->
+    <div class="table-center">
+        <!-- Round Info -->
+        <div class="round-info">
+            <div id="round-number">Round 1 of 5</div>
+        </div>
+
+        <!-- Scores Panel -->
+        <div class="scores-panel">
+            <h3>Scores</h3>
+            <div id="scores-list">
+                <!-- Scores will be rendered here by board.js -->
+            </div>
+        </div>
+
+        <!-- Played Cards Center -->
+        <div id="played-cards">
+            <!-- Played cards will be rendered here by board.js -->
+        </div>
+    </div>
+
+    <!-- Player Area (Bottom) -->
+    <div class="player-area">
+        <!-- Player's Hand -->
+        <div class="hand" id="player-hand">
+            <!-- Player's cards will be rendered here by hand.js -->
+        </div>
+
+        <!-- Play Button -->
+        <button id="play-btn" class="btn btn-primary btn-lg" disabled>
+            Play Card
+        </button>
+    </div>
+
+    <!-- Stack Container (Hidden initially) -->
+    <div class="stack-container hidden" id="stack-container">
+        <div class="stack-gauge">
+            <div class="stack-gauge-fill" id="stack-gauge-fill"></div>
+        </div>
+        <button id="stack-btn" class="btn btn-primary stack-btn">
+            Stack Cards
+        </button>
+    </div>
+
+    <!-- Notifications Container -->
+    <div class="notifications" id="notifications">
+        <!-- Dynamic notifications will appear here -->
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loading-overlay">
+    <div class="spinner spinner-lg">
+        <div class="spinner-inner"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Remove dom.js from here since it's already in base.html -->
+<!-- <script src="{% static 'js/utils/dom.js' %}"></script> -->
+
+<!-- WebSocket manager -->
+<script src="{% static 'js/core/socket.js' %}"></script>
+
+<!-- Game modules -->
+<script src="{% static 'js/game/board.js' %}"></script>
+<script src="{% static 'js/game/hand.js' %}"></script>
+<script src="{% static 'js/game/events.js' %}"></script>
+
+<!-- Initialize game -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const config = window.GAME_CONFIG;
+        
+        // Initialize game controller with config values
+        window.gameController = new GameEventHandler(config.gameId, config.playerId);
+        window.gameController.connect();
+    });
+</script>
+{% endblock %}

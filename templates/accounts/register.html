@@ -1,0 +1,216 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Sign Up - Spa{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <h1>Create Account</h1>
+        
+        <form id="register-form" class="auth-form">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    class="form-input" 
+                    required
+                    autocomplete="username"
+                    placeholder="Choose a username"
+                    minlength="3"
+                >
+                <div class="form-help">At least 3 characters</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="display_name" class="form-label">Display Name</label>
+                <input 
+                    type="text" 
+                    id="display_name" 
+                    name="display_name" 
+                    class="form-input" 
+                    required
+                    placeholder="Your name in games"
+                >
+                <div class="form-help">How others will see you</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="email" class="form-label">Email</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    class="form-input"
+                    required
+                    autocomplete="email"
+                    placeholder="your.email@example.com"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    class="form-input" 
+                    required
+                    autocomplete="new-password"
+                    placeholder="Choose a strong password"
+                    minlength="8"
+                >
+                <div class="form-help">At least 8 characters</div>
+            </div>
+            
+            <div class="form-group">
+                <label for="password_confirm" class="form-label">Confirm Password</label>
+                <input 
+                    type="password" 
+                    id="password_confirm" 
+                    name="password_confirm" 
+                    class="form-input" 
+                    required
+                    autocomplete="new-password"
+                    placeholder="Re-enter your password"
+                >
+            </div>
+            
+            <div id="error-message" class="form-error" style="display: none;"></div>
+            
+            <button type="submit" class="btn btn-primary btn-block btn-lg">
+                Sign Up
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{% url 'frontend:login' %}">Login</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.auth-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 80px);
+    padding: var(--space-4);
+}
+
+.auth-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-8);
+    max-width: 450px;
+    width: 100%;
+    box-shadow: var(--shadow-xl);
+}
+
+.auth-card h1 {
+    text-align: center;
+    color: var(--accent-gold);
+    margin-bottom: var(--space-6);
+}
+
+.auth-form {
+    margin-bottom: var(--space-6);
+}
+
+.auth-footer {
+    text-align: center;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--bg-tertiary);
+}
+
+.auth-footer p {
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.auth-footer a {
+    color: var(--accent-gold);
+    font-weight: var(--font-semibold);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const errorDiv = document.getElementById('error-message');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    // Disable button and show loading
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating account...';
+    errorDiv.style.display = 'none';
+    
+    try {
+        const formData = new FormData(e.target);
+        
+        const response = await fetch('/api/accounts/register/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            },
+            body: JSON.stringify({
+                username: formData.get('username'),
+                display_name: formData.get('display_name'),
+                email: formData.get('email'),
+                password: formData.get('password'),
+                password_confirm: formData.get('password_confirm')
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Registration successful - redirect to login
+            window.location.href = "{% url 'frontend:login' %}?registered=true";
+        } else {
+            // Show error
+            console.error('Registration error:', data);
+            
+            // Handle different error formats
+            let errorMessage = 'Registration failed: ';
+            if (data.error) {
+                errorMessage += data.error;
+            } else if (data.username) {
+                errorMessage += 'Username - ' + data.username.join(', ');
+            } else if (data.password) {
+                errorMessage += 'Password - ' + data.password.join(', ');
+            } else if (data.email) {
+                errorMessage += 'Email - ' + data.email.join(', ');
+            } else if (data.display_name) {
+                errorMessage += 'Display Name - ' + data.display_name.join(', ');
+            } else if (data.non_field_errors) {
+                errorMessage += data.non_field_errors.join(', ');
+            } else {
+                errorMessage += 'Please check your information and try again.';
+            }
+            
+            errorDiv.textContent = errorMessage;
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign Up';
+        }
+    } catch (error) {
+        console.error('Network error:', error);
+        errorDiv.textContent = 'Network error. Please check your connection and try again.';
+        errorDiv.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign Up';
+    }
+});
+</script>
+{% endblock %}

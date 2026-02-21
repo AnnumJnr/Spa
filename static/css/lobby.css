@@ -1,0 +1,198 @@
+/**
+ * Spa Game - Lobby Styles
+ */
+
+/* ========== PRACTICE SETUP ========== */
+.practice-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-8);
+}
+
+.practice-container h1 {
+  text-align: center;
+  color: var(--accent-gold);
+  margin-bottom: var(--space-8);
+}
+
+.practice-form {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+}
+
+.bot-difficulty-selectors {
+  margin-top: var(--space-6);
+}
+
+.bot-selector {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.bot-selector:last-child {
+  margin-bottom: 0;
+}
+
+.bot-selector-label {
+  display: block;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-medium);
+}
+
+/* ========== QUICK MATCH ========== */
+.quick-match-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.quick-match-container h1 {
+  color: var(--accent-gold);
+  margin-bottom: var(--space-8);
+}
+
+.searching-animation {
+  margin: var(--space-8) 0;
+}
+
+.searching-spinner {
+  display: inline-block;
+  width: 80px;
+  height: 80px;
+}
+
+.searching-text {
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+  margin-top: var(--space-4);
+}
+
+.queue-info {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-top: var(--space-8);
+}
+
+.queue-info p {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.queue-info strong {
+  color: var(--text-primary);
+}
+
+/* ========== PRIVATE ROOM ========== */
+.create-room-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-8);
+}
+
+.create-room-container h1 {
+  text-align: center;
+  color: var(--accent-gold);
+  margin-bottom: var(--space-8);
+}
+
+.create-room-form {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+}
+
+.room-settings {
+  margin-bottom: var(--space-6);
+}
+
+.share-link-container {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.share-link-label {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+  display: block;
+}
+
+.share-link-display {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.share-link-input {
+  flex: 1;
+  padding: var(--space-3);
+  background: var(--bg-secondary);
+  border: 1px solid var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.copy-btn {
+  padding: var(--space-3) var(--space-4);
+  white-space: nowrap;
+}
+
+/* ========== JOIN ROOM ========== */
+.join-room-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-8);
+}
+
+.join-room-container h1 {
+  text-align: center;
+  color: var(--accent-gold);
+  margin-bottom: var(--space-8);
+}
+
+.join-room-form {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+}
+
+.room-code-input {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  text-align: center;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ========== MOBILE LOBBY ========== */
+@media (max-width: 767px) {
+  .practice-container,
+  .quick-match-container,
+  .create-room-container,
+  .join-room-container {
+    padding: var(--space-4);
+  }
+  
+  .practice-form,
+  .create-room-form,
+  .join-room-form {
+    padding: var(--space-4);
+  }
+  
+  .share-link-display {
+    flex-direction: column;
+  }
+  
+  .copy-btn {
+    width: 100%;
+  }
+}

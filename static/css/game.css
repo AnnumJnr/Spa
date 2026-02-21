@@ -1,0 +1,334 @@
+/**
+ * Spa Game - Game Table Styles
+ */
+
+/* ========== GAME CONTAINER ========== */
+.game-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 80px);
+  background: var(--table-felt);
+  position: relative;
+}
+
+/* ========== OPPONENTS AREA ========== */
+.opponents-area {
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--bg-tertiary);
+}
+
+#opponents {
+  display: flex;
+  justify-content: space-around;
+  gap: var(--space-4);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.opponent-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.opponent-name {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.opponent-cards {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.opponent-score {
+  color: var(--accent-gold);
+  font-weight: var(--font-bold);
+  font-size: var(--text-lg);
+}
+
+/* ========== TABLE CENTER ========== */
+.table-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  position: relative;
+}
+
+#played-cards {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  min-height: 150px;
+  align-items: center;
+}
+
+.played-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.played-card-label {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  text-transform: uppercase;
+}
+
+/* ========== SCORES PANEL ========== */
+.scores-panel {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  min-width: 200px;
+}
+
+.scores-panel h3 {
+  color: var(--accent-gold);
+  font-size: var(--text-base);
+  margin-bottom: var(--space-3);
+  text-align: center;
+}
+
+.score-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+}
+
+.score-item.current-player {
+  border: 2px solid var(--accent-gold);
+}
+
+.score-name {
+  color: var(--text-primary);
+  font-weight: var(--font-medium);
+}
+
+.score-value {
+  color: var(--accent-gold);
+  font-weight: var(--font-bold);
+}
+
+/* ========== ROUND INFO ========== */
+.round-info {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+}
+
+#round-number {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+/* ========== PLAYER AREA ========== */
+.player-area {
+  background: var(--bg-secondary);
+  border-top: 2px solid var(--bg-tertiary);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.hand {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+  max-width: 100%;
+  overflow-x: auto;
+  padding: var(--space-2);
+}
+
+#play-btn {
+  min-width: 200px;
+}
+
+/* ========== STACK CONTAINER ========== */
+.stack-container {
+  position: fixed;
+  bottom: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 300px;
+}
+
+.stack-gauge {
+  width: 100%;
+  height: 20px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.stack-gauge-fill {
+  height: 100%;
+  background: var(--stack-gauge);
+  width: 0%;
+  transition: width 0.1s linear;
+  border-radius: var(--radius-full);
+}
+
+.stack-btn {
+  width: 100%;
+}
+
+/* ========== NOTIFICATIONS ========== */
+.notifications {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1500;
+  pointer-events: none;
+}
+
+.notification {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-4);
+  box-shadow: var(--shadow-xl);
+  text-align: center;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  animation: notificationPop 0.3s ease;
+}
+
+@keyframes notificationPop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.notification-success {
+  border: 2px solid var(--accent-green);
+  color: var(--accent-green);
+}
+
+.notification-error {
+  border: 2px solid var(--accent-red);
+  color: var(--accent-red);
+}
+
+.notification-warning {
+  border: 2px solid var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.notification-info {
+  border: 2px solid #2196f3;
+  color: #2196f3;
+}
+
+/* ========== LEAD INDICATOR ========== */
+.lead-indicator {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 30px;
+  height: 30px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--bg-primary);
+  box-shadow: var(--glow-gold);
+  animation: pulse 1.5s infinite;
+}
+
+/* ========== MOBILE GAME LAYOUT ========== */
+@media (max-width: 767px) {
+  .opponents-area {
+    padding: var(--space-2);
+  }
+  
+  #opponents {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  
+  .opponent-player {
+    flex: 1;
+    min-width: 80px;
+  }
+  
+  .table-center {
+    padding: var(--space-3);
+  }
+  
+  #played-cards {
+    gap: var(--space-2);
+    min-height: 100px;
+    flex-wrap: wrap;
+  }
+  
+  .scores-panel {
+    position: static;
+    margin-bottom: var(--space-4);
+    width: 100%;
+  }
+  
+  .round-info {
+    position: static;
+    margin-bottom: var(--space-4);
+  }
+  
+  .player-area {
+    padding: var(--space-3);
+  }
+  
+  .hand {
+    gap: var(--space-2);
+    justify-content: flex-start;
+    overflow-x: auto;
+    width: 100%;
+  }
+  
+  .stack-container {
+    left: 0;
+    right: 0;
+    transform: none;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    min-width: auto;
+  }
+}

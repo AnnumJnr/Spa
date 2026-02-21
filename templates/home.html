@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Spa - Play Now{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <header class="hero">
+        <h1>Spa</h1>
+        <p class="text-secondary">Traditional Ghanaian Card Game</p>
+        
+        <!-- BIG PROMINENT BUTTON -->
+        <a href="{% url 'frontend:game_modes' %}" class="btn btn-primary btn-lg" style="font-size: 1.5rem; padding: 1rem 3rem; margin-top: 2rem;">
+            🎮 Play Now
+        </a>
+        
+        {% if not user.is_authenticated %}
+        <!-- Small link for authentication -->
+        <p style="margin-top: 2rem; color: var(--text-secondary); font-size: 0.9rem;">
+            <a href="{% url 'frontend:login' %}" style="color: var(--accent-gold);">Login</a> 
+            or 
+            <a href="{% url 'frontend:register' %}" style="color: var(--accent-gold);">create an account</a> 
+            to save your stats
+        </p>
+        {% else %}
+        <p style="margin-top: 2rem; color: var(--text-secondary);">
+            Welcome back, <strong>{{ user.username }}</strong>!
+        </p>
+        {% endif %}
+    </header>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.home-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 80px);
+    text-align: center;
+}
+
+.hero h1 {
+    font-size: 4rem;
+    color: var(--accent-gold);
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.hero p {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

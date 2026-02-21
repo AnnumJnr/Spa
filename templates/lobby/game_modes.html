@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Game Modes - Spa{% endblock %}
+
+{% block content %}
+<div class="modes-container">
+    <h1>Select Game Mode</h1>
+    
+    <div class="modes-grid">
+        <a href="{% url 'frontend:practice' %}" class="mode-card">
+            <div class="mode-icon">🤖</div>
+            <h2>Practice</h2>
+            <p>Play against AI bots</p>
+            <span class="mode-badge">Solo</span>
+        </a>
+        
+        <a href="{% url 'frontend:quick_match' %}" class="mode-card">
+            <div class="mode-icon">⚡</div>
+            <h2>Quick Match</h2>
+            <p>Instant 1v1 game</p>
+            <span class="mode-badge">1v1</span>
+        </a>
+        
+        <a href="{% url 'frontend:multiplayer' %}" class="mode-card">
+            <div class="mode-icon">👥</div>
+            <h2>Multiplayer</h2>
+            <p>Join open lobby</p>
+            <span class="mode-badge">2-4 Players</span>
+        </a>
+        
+        <a href="{% url 'frontend:create_room' %}" class="mode-card">
+            <div class="mode-icon">🔒</div>
+            <h2>Private Room</h2>
+            <p>Play with friends</p>
+            <span class="mode-badge">Invite Only</span>
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.mode-icon {
+    font-size: 4rem;
+    margin-bottom: var(--space-4);
+}
+
+.mode-badge {
+    display: inline-block;
+    margin-top: var(--space-3);
+    padding: var(--space-1) var(--space-3);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    border-radius: var(--radius-full);
+}
+
+.mode-card:hover .mode-badge {
+    background: var(--accent-gold);
+    color: var(--bg-primary);
+}
+</style>
+{% endblock %}
