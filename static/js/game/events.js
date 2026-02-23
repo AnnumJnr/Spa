@@ -22,6 +22,10 @@ class GameEventHandler {
         this.gameState = null;
         this.isConnected = false;
         
+        // Track played cards for the current round
+        this.currentRoundCards = [];
+        this.roundComplete = false;
+        
         // Setup hand callback
         this.hand.onCardSelected = (card) => this.playCard(card);
         
@@ -75,13 +79,7 @@ class GameEventHandler {
     playCard(card) {
         if (!this.isConnected || !card) return;
         
-        console.log('=== PLAYING CARD ===');
-        console.log('Card to play:', card);
-        console.log('Game state before play:', this.gameState);
-        console.log('Is connected:', this.isConnected);
-        console.log('Game ID:', this.gameId);
-        console.log('Player ID:', this.playerId);
-        console.log('==================');
+        console.log('Playing card:', card);
         
         this.socket.send({
             action: 'play_card',
@@ -93,6 +91,20 @@ class GameEventHandler {
         
         // Disable hand while waiting for response
         this.hand.setMyTurn(false);
+        
+        // Show subtle notification that card was played
+        this.board.showNotification('Card played...', 'info', 800);
+    }
+    
+    /**
+     * Request current game state
+     */
+    requestState() {
+        if (!this.isConnected) return;
+        
+        this.socket.send({
+            action: 'request_state'
+        });
     }
     
     // ========== Event Handlers ==========
@@ -116,56 +128,95 @@ class GameEventHandler {
     }
     
     /**
- * Handle game state update
- */
-onGameState(data) {
-    console.log('=== GAME STATE RECEIVED ===');
-    console.log('Full game state:', JSON.stringify(data, null, 2));
-    console.log('Players:', data.players);
-    console.log('Hand:', data.hand);
-    console.log('Current player ID:', data.current_player_id);
-    console.log('My player ID:', this.playerId);
-    console.log('Is my turn?', data.current_player_id === this.playerId);
-    console.log('===========================');
-    
-    this.gameState = data;
-    
-    // Initialize board
-    this.board.initialize(data);
-    
-    // Initialize player's hand
-    if (data.hand) {
-        console.log('Initializing hand with:', data.hand);
-        this.hand.initialize(data.hand);
-    } else {
-        console.warn('No hand data in game state');
+     * Handle game state update
+     */
+    onGameState(data) {
+        console.log('=== GAME STATE RECEIVED ===');
+        console.log('Full game state:', JSON.stringify(data, null, 2));
+        
+        this.gameState = data;
+        
+        // Initialize board
+        this.board.initialize(data);
+        
+        // Initialize player's hand
+        if (data.hand) {
+            console.log('Initializing hand with:', data.hand);
+            this.hand.initialize(data.hand);
+        }
+        
+        // Render played cards if any
+        if (data.played_cards && data.played_cards.length > 0) {
+            this.currentRoundCards = data.played_cards;
+            this.board.renderPlayedCards(data.played_cards);
+        } else {
+            this.currentRoundCards = [];
+            this.board.clearPlayedCards();
+        }
+        
+        // Update round info
+        if (data.current_round) {
+            this.board.updateRoundInfo(data.current_round, data.total_rounds || 5);
+        }
+        
+        // Check if it's player's turn (compare as strings)
+        const isMyTurn = data.current_player_id === this.playerId;
+        this.hand.setMyTurn(isMyTurn);
+        
+        // Show turn notification in a non-intrusive way
+        if (isMyTurn) {
+            this.showTurnNotification();
+        }
+        
+        // Highlight current player
+        if (data.current_player_id) {
+            this.board.highlightCurrentPlayer(data.current_player_id);
+        }
+        
+        this.hideLoading();
     }
     
-    // Render played cards if any
-    if (data.played_cards && data.played_cards.length > 0) {
-        this.board.renderPlayedCards(data.played_cards);
+    /**
+     * Show turn notification without blocking the board
+     */
+    showTurnNotification() {
+        // Remove any existing turn notifications
+        const existingNotif = document.getElementById('turn-notification');
+        if (existingNotif) {
+            existingNotif.remove();
+        }
+        
+        // Create a subtle turn indicator
+        const notif = document.createElement('div');
+        notif.id = 'turn-notification';
+        notif.className = 'turn-notification';
+        notif.textContent = 'YOUR TURN';
+        notif.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--accent-gold, #ffd700);
+            color: var(--bg-dark, #1a2a1a);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        `;
+        
+        document.body.appendChild(notif);
+        
+        // Fade in
+        setTimeout(() => { notif.style.opacity = '1'; }, 10);
+        
+        // Fade out after 2 seconds
+        setTimeout(() => {
+            notif.style.opacity = '0';
+            setTimeout(() => notif.remove(), 300);
+        }, 2000);
     }
-    
-    // Update round info
-    if (data.current_round) {
-        this.board.updateRoundInfo(data.current_round);
-    }
-    
-    // Check if it's player's turn (compare as strings)
-    const isMyTurn = data.current_player_id === this.playerId;
-    this.hand.setMyTurn(isMyTurn);
-    
-    if (isMyTurn) {
-        this.board.showNotification('Your Turn!', 'info', 2000);
-    }
-    
-    // Highlight current player
-    if (data.current_player_id) {
-        this.board.highlightCurrentPlayer(data.current_player_id);
-    }
-    
-    this.hideLoading();
-}
     
     /**
      * Handle card played event
@@ -178,7 +229,6 @@ onGameState(data) {
         // If this player played the card, remove it from hand
         if (player_id === this.playerId) {
             this.hand.removeCard(card);
-            this.board.showNotification('Card played!', 'success', 1500);
         } else {
             // Update opponent's card count
             const player = this.board.players.find(p => p.id === player_id);
@@ -189,13 +239,17 @@ onGameState(data) {
         }
         
         // Add card to played cards center
+        this.currentRoundCards.push({ player_id, card });
         this.board.addPlayedCard(player_id, card);
         
-        // If round is complete, clear played cards after delay
-        if (round_complete) {
-            setTimeout(() => {
-                this.board.clearPlayedCards();
-            }, 2000);
+        // DON'T clear cards immediately - keep them visible
+        // Cards will be cleared when round_complete is true AND we move to next round
+        
+        // Show subtle notification for non-player plays
+        if (player_id !== this.playerId) {
+            const player = this.board.players.find(p => p.id === player_id);
+            const playerName = player ? (player.display_name || player.name) : 'Opponent';
+            this.board.showNotification(`${playerName} played a card`, 'info', 800);
         }
     }
     
@@ -206,8 +260,61 @@ onGameState(data) {
         console.log('Your turn:', data);
         
         this.hand.setMyTurn(true);
-        this.board.showNotification('Your Turn!', 'info', 2000);
+        this.showTurnNotification();
         this.board.highlightCurrentPlayer(this.playerId);
+    }
+    
+    /**
+     * Handle round started event
+     */
+    onRoundStarted(data) {
+        console.log('Round started:', data);
+        
+        const { round_index, lead_player_id } = data;
+        
+        // Clear played cards for the new round
+        this.currentRoundCards = [];
+        this.board.clearPlayedCards();
+        
+        // Update round info
+        this.board.updateRoundInfo(round_index + 1);
+        
+        // Show round notification
+        const roundNotif = document.createElement('div');
+        roundNotif.className = 'round-notification';
+        roundNotif.textContent = `Round ${round_index + 1} Started`;
+        roundNotif.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--accent-green, #4caf50);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        `;
+        
+        document.body.appendChild(roundNotif);
+        
+        // Fade in
+        setTimeout(() => { roundNotif.style.opacity = '1'; }, 10);
+        
+        // Fade out after 1.5 seconds
+        setTimeout(() => {
+            roundNotif.style.opacity = '0';
+            setTimeout(() => roundNotif.remove(), 500);
+        }, 1500);
+        
+        // Highlight the lead player
+        if (lead_player_id) {
+            this.board.highlightCurrentPlayer(lead_player_id);
+        }
     }
     
     /**
@@ -263,7 +370,8 @@ onGameState(data) {
             this.board.updateScores(new_scores);
         }
         
-        // Clear played cards
+        // Clear played cards for next set
+        this.currentRoundCards = [];
         this.board.clearPlayedCards();
     }
     
@@ -353,18 +461,6 @@ onGameState(data) {
         const leadName = newLead ? (newLead.display_name || newLead.name) : 'Unknown';
         
         this.board.showNotification(`Lead changed to ${leadName}!`, 'warning', 2500);
-    }
-    
-    /**
-     * Handle round started event
-     */
-    onRoundStarted(data) {
-        console.log('Round started:', data);
-        
-        const { round_index } = data;
-        
-        this.board.updateRoundInfo(round_index + 1);
-        this.board.clearPlayedCards();
     }
     
     // ========== UI Helpers ==========

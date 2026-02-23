@@ -214,11 +214,12 @@ class GameService:
             if current_round:
                 played_cards = []
                 for play in current_round.plays:
-                    player_uuid = id_mapper.get_uuid(play['player_id'])
+                    # FIX: Use object notation instead of dictionary access
+                    player_uuid = id_mapper.get_uuid(play.player_id)
                     if player_uuid:
                         played_cards.append({
                             'player_id': player_uuid,  # UUID string
-                            'card': play['card'].to_dict()
+                            'card': play.card.to_dict()
                         })
                 state_dict['played_cards'] = played_cards
             else:
