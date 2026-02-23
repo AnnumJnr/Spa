@@ -307,6 +307,72 @@
     100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
 }
 
+
+/* Play controls area - contains both play button and notifications */
+.play-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+    width: 100%;
+    justify-content: center;
+}
+
+/* Game notifications - positioned next to play button */
+.game-notifications {
+    min-width: 250px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 25px;
+    border-left: 4px solid var(--accent-gold, #ffd700);
+}
+
+/* Individual notification messages */
+.game-notification {
+    font-size: 14px;
+    color: var(--text-primary, #fff);
+    animation: fadeInOut 3s ease-in-out;
+    width: 100%;
+}
+
+.game-notification.error {
+    color: #ff6b6b;
+    border-left-color: #ff6b6b;
+}
+
+.game-notification.success {
+    color: #51cf66;
+    border-left-color: #51cf66;
+}
+
+.game-notification.warning {
+    color: #ffd43b;
+    border-left-color: #ffd43b;
+}
+
+.game-notification.info {
+    color: #339af0;
+    border-left-color: #339af0;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateX(-10px); }
+    10% { opacity: 1; transform: translateX(0); }
+    90% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(10px); }
+}
+
+/* Remove the old center notifications */
+.toast-container,
+#notifications {
+    display: none;
+}
+
+
 /* Ensure played cards are visible */
 .played-cards-container {
     display: flex;

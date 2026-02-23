@@ -226,21 +226,38 @@ class GameBoard {
     }
     
     /**
-     * Show notification
+     * Show notification in the dedicated notification area
      */
     showNotification(message, type = 'info', duration = 3000) {
-        const notificationsContainer = document.getElementById('notifications');
-        if (!notificationsContainer) return;
+        const notificationsContainer = document.getElementById('game-notifications');
+        if (!notificationsContainer) {
+            // Fallback to old method if new container doesn't exist
+            const oldContainer = document.getElementById('notifications');
+            if (oldContainer) {
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+                notification.textContent = message;
+                oldContainer.appendChild(notification);
+                setTimeout(() => notification.remove(), duration);
+            }
+            return;
+        }
         
+        // Clear any existing notification
+        notificationsContainer.innerHTML = '';
+        
+        // Create new notification
         const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
+        notification.className = `game-notification ${type}`;
         notification.textContent = message;
         
         notificationsContainer.appendChild(notification);
         
         // Auto-remove after duration
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentNode) {
+                notification.remove();
+            }
         }, duration);
     }
     

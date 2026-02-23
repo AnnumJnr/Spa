@@ -342,19 +342,30 @@ class SetService:
         )
         
         # Create first round with integer ID for engine
-        lead_int_id = id_mapper.get_int_required(str(game.current_lead.id))
+        lead_int_id = id_mapper.get_int(str(game.current_lead.id))
+        if lead_int_id is None:
+            print(f"ERROR: Could not map lead player {game.current_lead.id} to int ID")
+            # Fallback to first active player
+            active_player_ints = []
+            for uuid_str in active_player_uuids:
+                int_id = id_mapper.get_int(uuid_str)
+                if int_id is not None:
+                    active_player_ints.append(int_id)
+            
+            lead_int_id = active_player_ints[0] if active_player_ints else 1
+            print(f"Using fallback lead ID: {lead_int_id}")
+
+        print(f"Creating round 0 with lead player {lead_int_id}")
         first_round = {
             'round_index': 0,
-            'lead_player_id': lead_int_id,  # Integer for engine
+            'lead_player_id': lead_int_id,
             'lead_suit': None,
             'plays': [],
             'resolved': False
         }
         set_obj.rounds = [first_round]
         set_obj.save()
-        
-        return set_obj
-    
+
     @staticmethod
     def load_set_state(set_obj: Set, id_mapper: IDMapper) -> SetState:
         """
@@ -527,6 +538,8 @@ class SetService:
         Returns:
             Results dictionary with UUID strings for player IDs
         """
+        print("\n=== ENDING SET ===")
+        
         # Build game state for scoring (with integer IDs)
         game_state = GameState(
             game_id=str(game.id),
@@ -543,10 +556,32 @@ class SetService:
                 is_active=player.is_active
             )
         
+        # Set turn order from players
+        game_state.turn_order = [id_mapper.get_int_required(str(p.id)) for p in players]
+        
         # Determine winner (returns integer ID)
         winner_int_id = TransitionEngine.determine_set_winner(set_state)
-        winner_uuid = id_mapper.get_uuid_required(winner_int_id)
-        winner = GamePlayer.objects.get(id=winner_uuid)
+        print(f"Winner int ID from engine: {winner_int_id}")
+        
+        # SAFETY CHECK: Ensure winner ID is valid
+        if winner_int_id is None or winner_int_id == 0:
+            print(f"ERROR: Invalid winner ID {winner_int_id}, using first active player")
+            active_players = set_state.active_players
+            winner_int_id = active_players[0] if active_players else 1
+            print(f"Fallback winner ID: {winner_int_id}")
+        
+        # Map winner ID to UUID and get player object
+        try:
+            winner_uuid = id_mapper.get_uuid_required(winner_int_id)
+            winner = GamePlayer.objects.get(id=winner_uuid)
+            print(f"Winner found: {winner_uuid}")
+        except (KeyError, GamePlayer.DoesNotExist) as e:
+            print(f"ERROR mapping winner ID {winner_int_id}: {e}")
+            # Fallback to first player
+            winner = game.players.first()
+            winner_int_id = id_mapper.get_int_required(str(winner.id))
+            winner_uuid = str(winner.id)
+            print(f"Fallback winner: {winner_uuid}")
         
         # Calculate score
         score_awarded = ScoringEngine.calculate_set_score(
@@ -554,6 +589,7 @@ class SetService:
             set_state,
             winner_int_id
         )
+        print(f"Score awarded: {score_awarded}")
         
         # Check for steal bonus
         if set_state.rounds:
@@ -563,11 +599,14 @@ class SetService:
                 final_round,
                 winner_int_id
             )
-            score_awarded += steal_bonus
+            if steal_bonus:
+                print(f"Steal bonus: {steal_bonus}")
+                score_awarded += steal_bonus
         
         # Update winner's score
         winner.score += score_awarded
         winner.save()
+        print(f"Winner new score: {winner.score}")
         
         # Update set
         set_obj.status = SetStatus.ENDED
@@ -582,27 +621,44 @@ class SetService:
         
         if winner.score >= game.target_score:
             game_ended = True
-            game_winner_uuid = winner_uuid
+            game_winner_uuid = str(winner.id)
+            print(f"Game ended! Winner: {game_winner_uuid}")
             GameService.end_game(game, winner)
         else:
-            # Rotate lead for next set (returns integer ID)
+            # Rotate lead for next set
+            print("Rotating lead for next set...")
             new_lead_int_id = TransitionEngine.rotate_lead_for_new_set(game_state)
-            new_lead_uuid = id_mapper.get_uuid_required(new_lead_int_id)
-            new_lead = GamePlayer.objects.get(id=new_lead_uuid)
-            game.current_lead = new_lead
-            game.save()
+            print(f"New lead int ID from rotation: {new_lead_int_id}")
+            
+            # SAFETY CHECK: Ensure we have a valid lead ID
+            if new_lead_int_id == 0 or new_lead_int_id is None:
+                print(f"ERROR: Invalid lead ID {new_lead_int_id} for next set, using winner")
+                new_lead_int_id = winner_int_id
+            
+            try:
+                new_lead_uuid = id_mapper.get_uuid_required(new_lead_int_id)
+                new_lead = GamePlayer.objects.get(id=new_lead_uuid)
+                game.current_lead = new_lead
+                game.save()
+                print(f"New lead for next set: {new_lead_uuid}")
+            except (KeyError, GamePlayer.DoesNotExist) as e:
+                print(f"ERROR setting new lead: {e}, using winner as lead")
+                game.current_lead = winner
+                game.save()
             
             # Create next set
+            print(f"Creating next set: {set_obj.set_number + 1}")
             SetService.create_set(game, set_number=set_obj.set_number + 1)
+        
+        print("=== END SET ===\n")
         
         # Return with UUID strings
         return {
-            'winner_id': winner_int_id,  # Keep as int for internal processing
+            'winner_id': winner_int_id,
             'score_awarded': score_awarded,
             'game_ended': game_ended,
-            'game_winner_id': game_winner_uuid if game_winner_uuid else None
+            'game_winner_id': game_winner_uuid
         }
-
 
 class CardPlayService:
     """Service for handling card plays."""

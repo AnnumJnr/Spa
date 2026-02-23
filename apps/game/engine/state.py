@@ -221,16 +221,54 @@ class GameState:
             for player_id, player in self.players.items()
             if player.is_active
         ]
-    
+        
     def get_next_player(self, current_player_id: int) -> int:
-        """Get the next player in clockwise order."""
+        """
+        Get the next player in clockwise order.
+        Only returns active players.
+        
+        Args:
+            current_player_id: Current player ID
+        
+        Returns:
+            Next active player ID, or 0 if none found
+        """
         try:
-            current_index = self.turn_order.index(current_player_id)
-            next_index = (current_index + 1) % len(self.turn_order)
-            return self.turn_order[next_index]
-        except ValueError:
-            # If player not in turn order, return first player
-            return self.turn_order[0] if self.turn_order else 0
+            if not self.turn_order:
+                print("ERROR: No turn order in game_state")
+                active_players = self.get_active_players()
+                return active_players[0] if active_players else 0
+            
+            # Get list of active players
+            active_players = self.get_active_players()
+            if not active_players:
+                print("ERROR: No active players found")
+                return 0
+            
+            # Find current player in turn order
+            try:
+                current_index = self.turn_order.index(current_player_id)
+            except ValueError:
+                print(f"Current player {current_player_id} not in turn order")
+                # Return first active player
+                return active_players[0]
+            
+            # Look for next active player in clockwise order
+            for i in range(1, len(self.turn_order) + 1):
+                next_index = (current_index + i) % len(self.turn_order)
+                next_player = self.turn_order[next_index]
+                
+                if next_player in active_players:
+                    return next_player
+            
+            # No active players found after current
+            print("WARNING: No active players found after current")
+            return active_players[0] if active_players else 0
+            
+        except Exception as e:
+            print(f"Error in get_next_player: {e}")
+            active_players = self.get_active_players()
+            return active_players[0] if active_players else 0
     
     def check_win_condition(self) -> Optional[int]:
         """Check if any player has won. Returns winner's player_id or None."""

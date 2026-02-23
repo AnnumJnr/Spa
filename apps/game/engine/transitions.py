@@ -86,8 +86,23 @@ class TransitionEngine:
         Returns:
             New lead player ID
         """
+        print(f"\n=== ROTATING LEAD FOR NEW SET ===")
+        print(f"Current lead: {game_state.lead_player_id}")
+        
+        # Get next player using the improved method
         new_lead = game_state.get_next_player(game_state.lead_player_id)
+        
+        # SAFETY CHECK: Ensure we have a valid lead
+        if new_lead == 0 or new_lead is None:
+            print(f"ERROR: Invalid new lead {new_lead}, using first active player")
+            active_players = game_state.get_active_players()
+            new_lead = active_players[0] if active_players else 1
+            print(f"Fallback lead: {new_lead}")
+        
         game_state.lead_player_id = new_lead
+        print(f"New lead: {new_lead}")
+        print("=== END ROTATE LEAD ===\n")
+        
         return new_lead
     
     @staticmethod
