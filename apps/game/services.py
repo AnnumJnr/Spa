@@ -304,6 +304,7 @@ class SetService:
         
         # Load deck from game
         deck = Deck.from_dict(game.deck_state)
+        reshuffled = False
         
         # Check if we need to reshuffle
         num_players = len(players)
@@ -311,6 +312,11 @@ class SetService:
             deck.reset()
             game.deck_state = deck.to_dict()
             game.save()
+            reshuffled = True
+            print(f"🔄 Deck reshuffled for set {set_number}")
+            
+            # TODO: Broadcast reshuffle event to all players
+            # This will be done through the channel layer
         
         # Deal hands - store with UUID string keys for database
         hands = {}
@@ -345,13 +351,11 @@ class SetService:
         lead_int_id = id_mapper.get_int(str(game.current_lead.id))
         if lead_int_id is None:
             print(f"ERROR: Could not map lead player {game.current_lead.id} to int ID")
-            # Fallback to first active player
             active_player_ints = []
             for uuid_str in active_player_uuids:
                 int_id = id_mapper.get_int(uuid_str)
                 if int_id is not None:
                     active_player_ints.append(int_id)
-            
             lead_int_id = active_player_ints[0] if active_player_ints else 1
             print(f"Using fallback lead ID: {lead_int_id}")
 
@@ -365,6 +369,11 @@ class SetService:
         }
         set_obj.rounds = [first_round]
         set_obj.save()
+        
+        # Return reshuffle status for notification
+        set_obj.reshuffled = reshuffled  # You might want to add this field to your Set model
+        
+        return set_obj
 
     @staticmethod
     def load_set_state(set_obj: Set, id_mapper: IDMapper) -> SetState:

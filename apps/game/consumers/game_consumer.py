@@ -295,7 +295,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps(
             EventBuilder.game_state(game_state)
         ))
-    
+        
     async def handle_card_played_event(self, event):
         """Handle card played event broadcast from others."""
         try:
@@ -303,28 +303,10 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"\n=== HANDLE CARD PLAYED EVENT ===")
             print(f"Card played data: {data}")
             
-            # If this card play completed the round, handle round completion
-            if data.get('round_complete'):
-                print("Round completion detected in broadcast event")
-                await asyncio.sleep(0.5)  # Wait for DB to update
+            # Just log it - no complex logic needed
+            # The process_round_after_bot trigger will handle everything
+            pass
                 
-                # Get updated state
-                updated_state = await self.get_game_state()
-                
-                # Broadcast the updated game state
-                await self.channel_layer.group_send(
-                    self.game_group_name,
-                    {
-                        'type': 'broadcast_event',
-                        'event': EventBuilder.game_state(updated_state)
-                    }
-                )
-                
-                # Check next turn AFTER round completion
-                await self.check_and_trigger_next_turn()
-            else:
-                # Round not complete, check next turn immediately
-                await self.check_and_trigger_next_turn()
         except Exception as e:
             print(f"Error in handle_card_played_event: {e}")
             import traceback
@@ -351,11 +333,10 @@ class GameConsumer(AsyncWebsocketConsumer):
                 if str(player.id) == current_player_id:
                     if player.is_bot:
                         print(f"Next player is bot: {current_player_id}, triggering...")
-                        await asyncio.sleep(0.5)  # Small delay for stability
+                        await asyncio.sleep(0.5)
                         await self.trigger_specific_bot_turn(current_player_id)
                     else:
                         print(f"Next player is human: {current_player_id}, sending your_turn event")
-                        # Broadcast your_turn event for human player
                         await self.channel_layer.group_send(
                             self.game_group_name,
                             {
@@ -370,6 +351,72 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"Error in check_and_trigger_next_turn: {e}")
             import traceback
             traceback.print_exc()
+
+    async def process_round_after_bot(self, event):
+        """
+        Handler called after bot plays and viewing delay completes.
+        This processes pending round completions and broadcasts updated game state.
+        
+        Called when bot sends 'process_round_after_bot' message.
+        """
+        try:
+            print(f"\n=== PROCESS ROUND AFTER BOT (Player {self.player_id}) ===")
+            
+            # Small delay to ensure DB is fully updated
+            await asyncio.sleep(0.2)
+            
+            # Broadcast updated game state to all players
+            print("Broadcasting updated game state to all players...")
+            await self.broadcast_game_state_to_all()
+            print("✓ Game state broadcast complete")
+            
+            # Check if next player is a bot
+            print("Checking if next player is a bot...")
+            await self.check_and_trigger_next_turn()
+            
+            print("=== END PROCESS ROUND AFTER BOT ===\n")
+            
+        except Exception as e:
+            print(f"Error processing round after bot: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    async def broadcast_game_state_to_all(self):
+        """
+        Broadcast updated game state to ALL players.
+        Each player will receive their own personalized version with their hand.
+        """
+        print("Broadcasting game state to all players...")
+        
+        # Broadcast to group - each consumer will personalize it
+        await self.channel_layer.group_send(
+            self.game_group_name,
+            {
+                'type': 'send_game_state_to_player',
+            }
+        )
+        print("Game state broadcast initiated")
+    
+    async def send_game_state_to_player(self, event):
+        """
+        Handler that sends personalized game state to THIS specific player.
+        Called when group receives 'send_game_state_to_player' message.
+        """
+        try:
+            print(f"Sending game state to player {self.player_id}")
+            
+            # Get game state WITH this player's hand
+            game_state = await self.get_game_state()
+            
+            # Send to this player
+            await self.send(text_data=json.dumps(
+                EventBuilder.game_state(game_state)
+            ))
+            
+            print(f"✓ Game state sent to player {self.player_id}")
+            
+        except Exception as e:
+            print(f"Error sending game state to player {self.player_id}: {e}")
     
     async def handle_round_completion(self, event_data: Dict[str, Any]):
         """Handle round completion events."""
@@ -435,7 +482,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 {
                     'type': 'broadcast_event',
                     'event': EventBuilder.set_ended(
-                        winner_uuid,  # UUID string
+                        winner_uuid,
                         set_end_results.get('score_awarded', 0),
                         scores
                     )
@@ -451,7 +498,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'broadcast_event',
                         'event': EventBuilder.game_ended(
-                            game_winner_uuid,  # UUID string
+                            game_winner_uuid,
                             scores
                         )
                     }
@@ -467,18 +514,17 @@ class GameConsumer(AsyncWebsocketConsumer):
             event_data = event['event']
             event_type = event_data.get('type')
             
-            # Log all broadcast events for debugging
             print(f"\n=== BROADCAST EVENT: {event_type} ===")
             
-            # Handle specific event types
             if event_type == GameEvent.CARD_PLAYED:
                 await self.handle_card_played_event(event)
             
-            # Always send to client
             await self.send(text_data=json.dumps(event_data))
+            
         except Exception as e:
             print(f"Error in broadcast_event: {e}")
-            # Don't re-raise - we don't want to crash the connection
+            import traceback
+            traceback.print_exc()
     
     # Database operations (async wrappers)
     
@@ -555,7 +601,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         try:
             game = Game.objects.get(id=self.game_id)
             return {
-                str(p.id): p.score  # Convert UUID to string for keys
+                str(p.id): p.score
                 for p in game.players.all()
             }
         except Game.DoesNotExist:
@@ -570,7 +616,6 @@ class GameConsumer(AsyncWebsocketConsumer):
             if not set_obj:
                 return
             
-            # Use asyncio.create_task instead of threading
             asyncio.create_task(self.process_bot_turn_async(str(game.id)))
         
         except Exception as e:
@@ -579,11 +624,10 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def process_bot_turn_async(self, game_id: str):
         """Process bot turn asynchronously."""
         try:
-            # Run bot processing in thread pool to avoid blocking
             from apps.bots.tasks import BotTurnHandler
             await database_sync_to_async(BotTurnHandler.process_bot_turn)(
                 game_id, 
-                None  # Will determine next bot internally
+                None
             )
         except Exception as e:
             print(f"Bot turn processing error: {e}")

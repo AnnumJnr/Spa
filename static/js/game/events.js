@@ -26,6 +26,9 @@ class GameEventHandler {
         this.currentRoundCards = [];
         this.roundComplete = false;
         
+        // Add a flag to track if we're in 1v1 delay mode
+        this.isDelayActive = false;
+        
         // Setup hand callback
         this.hand.onCardSelected = (card) => this.playCard(card);
         
@@ -225,6 +228,7 @@ class GameEventHandler {
         console.log('Card played:', data);
         
         const { player_id, card, round_complete } = data;
+        const isTwoPlayerGame = this.board.players.length === 2;
         
         // If this player played the card, remove it from hand
         if (player_id === this.playerId) {
@@ -242,22 +246,55 @@ class GameEventHandler {
         this.currentRoundCards.push({ player_id, card });
         this.board.addPlayedCard(player_id, card);
         
-        // DON'T clear cards immediately - keep them visible
-        // Cards will be cleared when round_complete is true AND we move to next round
-        
         // Show subtle notification for non-player plays
         if (player_id !== this.playerId) {
             const player = this.board.players.find(p => p.id === player_id);
             const playerName = player ? (player.display_name || player.name) : 'Opponent';
             this.board.showNotification(`${playerName} played a card`, 'info', 800);
         }
+        
+        // SPECIAL HANDLING FOR 1v1 MODE
+        if (round_complete) {
+            if (isTwoPlayerGame) {
+                // In 2-player games, delay the round transition so player can see opponent's card
+                console.log('2-player round complete - delaying transition for 2 seconds');
+                this.isDelayActive = true;
+                
+                // Disable the hand during delay
+                this.hand.setMyTurn(false);
+                
+                // Wait 2 seconds before allowing the round to complete
+                setTimeout(() => {
+                    console.log('Delay complete - round can now transition');
+                    this.isDelayActive = false;
+                    // Round completion will be handled by the server
+                    // We just needed to pause before the next round starts
+                }, 2000);
+            } else {
+                // For 3-4 player games, proceed normally
+                console.log('Multiplayer round complete - cards will stay until next round');
+            }
+        }
     }
-    
+
     /**
      * Handle your turn event
      */
     onYourTurn(data) {
         console.log('Your turn:', data);
+        
+        // Don't enable turn if we're in delay mode
+        if (this.isDelayActive) {
+            console.log('Delay active - deferring turn activation');
+            setTimeout(() => {
+                if (!this.isDelayActive) {
+                    this.hand.setMyTurn(true);
+                    this.showTurnNotification();
+                    this.board.highlightCurrentPlayer(this.playerId);
+                }
+            }, 500);
+            return;
+        }
         
         this.hand.setMyTurn(true);
         this.showTurnNotification();
@@ -271,10 +308,19 @@ class GameEventHandler {
         console.log('Round started:', data);
         
         const { round_index, lead_player_id } = data;
+        const isTwoPlayerGame = this.board.players.length === 2;
         
-        // Clear played cards for the new round
-        this.currentRoundCards = [];
-        this.board.clearPlayedCards();
+        // For 2-player games, we want to keep cards visible longer
+        // The clearing will be handled by the delay in onCardPlayed
+        if (!isTwoPlayerGame) {
+            // For 3-4 player games, clear when new round starts
+            this.currentRoundCards = [];
+            this.board.clearPlayedCards();
+        } else if (!this.isDelayActive) {
+            // For 2-player games, only clear if not in delay
+            this.currentRoundCards = [];
+            this.board.clearPlayedCards();
+        }
         
         // Update round info
         this.board.updateRoundInfo(round_index + 1);

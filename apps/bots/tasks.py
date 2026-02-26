@@ -20,7 +20,8 @@ class BotTurnHandler:
     @staticmethod
     def process_bot_turn(game_id: str, bot_player_id: str):
         """
-        Process a bot's turn.
+        Process a bot's turn - ONLY plays card and adds viewing delay.
+        All broadcasting and state management is handled by the consumer.
         
         Args:
             game_id: Game ID (UUID string)
@@ -38,10 +39,10 @@ class BotTurnHandler:
                 print(f"Player {bot_player_id} is not a bot")
                 return
             
-            # Small random delay to make bot play feel natural
-            delay = random.uniform(1.0, 2.5)
-            print(f"Bot thinking for {delay:.2f} seconds...")
-            time.sleep(delay)
+            # Bot thinking delay
+            thinking_delay = random.uniform(0.5, 1.2)
+            print(f"Bot thinking for {thinking_delay:.2f} seconds...")
+            time.sleep(thinking_delay)
             
             # Get all players and create ID mapper
             players = list(game.players.all().order_by('seat_position'))
@@ -54,11 +55,12 @@ class BotTurnHandler:
                 return
             
             set_state = SetService.load_set_state(set_obj, id_mapper)
+            current_round_number = set_state.current_round_index + 1
             
             # Get bot's integer ID
             bot_int_id = id_mapper.get_int_required(str(bot_player.id))
             
-            # Create bot instance and choose card
+            # Create bot instance
             bot = BotService.create_bot_instance(bot_player)
             
             # Build game state for bot
@@ -88,24 +90,42 @@ class BotTurnHandler:
                 game, bot_player, card_dict
             )
             
-            if success:
-                print("Bot card play successful")
-                # Broadcast card play event
-                BotTurnHandler._broadcast_event(
-                    game_id,
-                    EventBuilder.card_played(
-                        str(bot_player.id),
-                        card_dict,
-                        event_data.get('round_complete', False)
-                    )
-                )
-                
-                # NO TURN MANAGEMENT HERE - let consumer handle it
-            else:
+            if not success:
                 print(f"Bot card play failed: {error}")
+                return
+            
+            print("✓ Bot card play successful")
+            
+            # Broadcast card played event immediately
+            # This is the ONLY broadcast from bot - consumer handles the rest
+            BotTurnHandler._broadcast_event(
+                game_id,
+                EventBuilder.card_played(
+                    str(bot_player.id),
+                    card_dict,
+                    event_data.get('round_complete', False),
+                    current_round_number
+                )
+            )
+            print("✓ Card played event broadcast")
+            
+            # VIEWING DELAY - let players see the cards on screen
+            num_players = len(players)
+            viewing_delay = 2.5 if num_players == 2 else 1.5
+            
+            print(f"Viewing delay ({viewing_delay}s) - cards remain visible...")
+            time.sleep(viewing_delay)
+            print("✓ Viewing delay complete")
+            
+            # After viewing delay, trigger consumer to process everything
+            print("Triggering consumer to process round completion...")
+            BotTurnHandler._trigger_consumer_processing(game_id)
+            print("✓ Consumer processing triggered")
+            
+            print("=== BOT TURN COMPLETE ===\n")
                 
         except Exception as e:
-            print(f"Bot turn error: {e}")
+            print(f"✗ Bot turn error: {e}")
             import traceback
             traceback.print_exc()
     
@@ -124,3 +144,23 @@ class BotTurnHandler:
             )
         except Exception as e:
             print(f"Broadcast error: {e}")
+    
+    @staticmethod
+    def _trigger_consumer_processing(game_id: str):
+        """
+        Trigger consumer to process round completion and broadcast game state.
+        This sends a special message that tells the consumer to handle everything.
+        """
+        try:
+            channel_layer = get_channel_layer()
+            group_name = f'game_{game_id}'
+            
+            # Send trigger to consumer to process the round
+            async_to_sync(channel_layer.group_send)(
+                group_name,
+                {
+                    'type': 'process_round_after_bot',
+                }
+            )
+        except Exception as e:
+            print(f"✗ Trigger consumer error: {e}")

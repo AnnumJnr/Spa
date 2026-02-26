@@ -71,7 +71,7 @@ class EventBuilder:
     def player_connected(player_id: str, display_name: str) -> Dict:
         """Player connected to game."""
         return EventBuilder.build_event(GameEvent.PLAYER_CONNECTED, {
-            "player_id": player_id,  # Already string (UUID)
+            "player_id": player_id,
             "display_name": display_name
         })
     
@@ -79,7 +79,7 @@ class EventBuilder:
     def player_disconnected(player_id: str) -> Dict:
         """Player disconnected from game."""
         return EventBuilder.build_event(GameEvent.PLAYER_DISCONNECTED, {
-            "player_id": player_id  # Already string (UUID)
+            "player_id": player_id
         })
     
     @staticmethod
@@ -98,8 +98,8 @@ class EventBuilder:
     def game_ended(winner_id: str, final_scores: Dict[str, int]) -> Dict:
         """Game has ended."""
         return EventBuilder.build_event(GameEvent.GAME_ENDED, {
-            "winner_id": winner_id,  # Already string (UUID)
-            "final_scores": final_scores  # Already Dict[str, int]
+            "winner_id": winner_id,
+            "final_scores": final_scores
         })
     
     @staticmethod
@@ -107,16 +107,16 @@ class EventBuilder:
         """New set started."""
         return EventBuilder.build_event(GameEvent.SET_STARTED, {
             "set_number": set_number,
-            "lead_player_id": lead_player_id  # Already string (UUID)
+            "lead_player_id": lead_player_id
         })
     
     @staticmethod
     def set_ended(winner_id: str, score_awarded: int, new_scores: Dict[str, int]) -> Dict:
         """Set has ended."""
         return EventBuilder.build_event(GameEvent.SET_ENDED, {
-            "winner_id": winner_id,  # Already string (UUID)
+            "winner_id": winner_id,
             "score_awarded": score_awarded,
-            "new_scores": new_scores  # Already Dict[str, int]
+            "new_scores": new_scores
         })
     
     @staticmethod
@@ -124,7 +124,7 @@ class EventBuilder:
         """New round started."""
         return EventBuilder.build_event(GameEvent.ROUND_STARTED, {
             "round_index": round_index,
-            "lead_player_id": lead_player_id  # Already string (UUID)
+            "lead_player_id": lead_player_id
         })
     
     @staticmethod
@@ -132,23 +132,23 @@ class EventBuilder:
         player_id: str,
         card: Dict,
         round_complete: bool = False,
-        next_player_id: Optional[str] = None
+        round_number: Optional[int] = None
     ) -> Dict:
         """Card was played."""
         data = {
-            "player_id": player_id,  # Already string (UUID)
+            "player_id": player_id,
             "card": card,
             "round_complete": round_complete
         }
-        if next_player_id is not None:
-            data["next_player_id"] = next_player_id  # Already string (UUID)
+        if round_number is not None:
+            data["round"] = round_number
         return EventBuilder.build_event(GameEvent.CARD_PLAYED, data)
     
     @staticmethod
     def invalid_play(player_id: str, reason: str) -> Dict:
         """Invalid card play attempted."""
         return EventBuilder.build_event(GameEvent.INVALID_PLAY, {
-            "player_id": player_id,  # Already string (UUID)
+            "player_id": player_id,
             "reason": reason
         })
     
@@ -156,14 +156,14 @@ class EventBuilder:
     def your_turn(player_id: str) -> Dict:
         """It's a specific player's turn."""
         return EventBuilder.build_event(GameEvent.YOUR_TURN, {
-            "player_id": player_id  # Already string (UUID)
+            "player_id": player_id
         })
     
     @staticmethod
     def lead_changed(new_lead_player_id: str, offsetting_card: Optional[Dict] = None) -> Dict:
         """Lead player changed."""
         data = {
-            "new_lead_player_id": new_lead_player_id  # Already string (UUID)
+            "new_lead_player_id": new_lead_player_id
         }
         if offsetting_card is not None:
             data["offsetting_card"] = offsetting_card
@@ -173,7 +173,7 @@ class EventBuilder:
     def stack_initiated(player_id: str, num_cards: int) -> Dict:
         """Player initiated stacking."""
         return EventBuilder.build_event(GameEvent.STACK_INITIATED, {
-            "player_id": player_id,  # Already string (UUID)
+            "player_id": player_id,
             "num_cards_stacked": num_cards
         })
     
@@ -181,15 +181,15 @@ class EventBuilder:
     def stack_interrupted(interrupting_player_id: str, stack_owner_id: str) -> Dict:
         """Stack was interrupted."""
         return EventBuilder.build_event(GameEvent.STACK_INTERRUPTED, {
-            "interrupting_player_id": interrupting_player_id,  # Already string (UUID)
-            "stack_owner_id": stack_owner_id  # Already string (UUID)
+            "interrupting_player_id": interrupting_player_id,
+            "stack_owner_id": stack_owner_id
         })
     
     @staticmethod
     def stack_gauge_update(player_id: str, gauge_percentage: int) -> Dict:
         """Stack gauge update."""
         return EventBuilder.build_event(GameEvent.STACK_GAUGE_UPDATE, {
-            "player_id": player_id,  # Already string (UUID)
+            "player_id": player_id,
             "percentage": gauge_percentage
         })
     
@@ -197,16 +197,16 @@ class EventBuilder:
     def foul_detected(fouling_players: List[str], reason: str, penalties: Dict[str, int]) -> Dict:
         """Foul was detected."""
         return EventBuilder.build_event(GameEvent.FOUL_DETECTED, {
-            "fouling_players": fouling_players,  # Already List[str] (UUIDs)
+            "fouling_players": fouling_players,
             "reason": reason,
-            "penalties": penalties  # Already Dict[str, int]
+            "penalties": penalties
         })
     
     @staticmethod
     def score_update(scores: Dict[str, int]) -> Dict:
         """Score update."""
         return EventBuilder.build_event(GameEvent.SCORE_UPDATE, {
-            "scores": scores  # Already Dict[str, int]
+            "scores": scores
         })
     
     @staticmethod
