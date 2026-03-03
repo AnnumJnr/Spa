@@ -1,10 +1,12 @@
 """
 Game rules engine: foul detection and offset logic.
+Now includes stack foul detection.
 """
 from typing import List, Dict, Tuple, Optional
 from .card import Card
 from .state import GameState, SetState, RoundState
 from .constants import Scoring
+from .stack import StackManager
 
 
 class FoulResult:
@@ -62,20 +64,24 @@ class RuleEngine:
     ) -> FoulResult:
         """
         Check for fouls after all players have played in a round.
+        Now includes stack fouls.
         
         A foul occurs when:
         - Player plays wrong suit
         - While still having the lead suit in hand
+        - Stack foul: auto-played card from interrupted stack violates suit-following
         """
         fouling_players = []
         lead_suit = round_state.lead_suit
+        foul_reason = ""
         
         if lead_suit is None:
             return FoulResult(fouling_players)
         
+        # Check each play for normal suit fouls
         for play in round_state.plays:
             player_id = play.player_id
-            card = play.card 
+            card = play.card
             
             # Skip the lead player's first card (sets the suit)
             if player_id == round_state.lead_player_id and len(round_state.plays) == 1:
@@ -87,10 +93,35 @@ class RuleEngine:
                 hand = set_state.hands.get(player_id)
                 if hand and hand.has_suit(lead_suit):
                     fouling_players.append(player_id)
+                    foul_reason = "played_wrong_suit"
+                    print(f"  ⚠️ FOUL: Player {player_id} played {card.suit} but must follow {lead_suit}")
+        
+        # Check for stack fouls (if there's an active/interrupted stack)
+        if set_state.stack_state and set_state.stack_state.interrupted:
+            stacker_id = set_state.stack_state.owner_player_id
+            
+            # Find if the stacker played this round (auto-play)
+            stacker_play = None
+            for play in round_state.plays:
+                if play.player_id == stacker_id:
+                    stacker_play = play
+                    break
+            
+            if stacker_play:
+                # This is an auto-played card - check for stack foul
+                if StackManager.check_stack_foul(
+                    set_state, 
+                    round_state, 
+                    stacker_id, 
+                    stacker_play.card
+                ):
+                    fouling_players.append(stacker_id)
+                    foul_reason = "stack_foul"
+                    print(f"  ⚠️ STACK FOUL: Player {stacker_id} from interrupted stack")
         
         return FoulResult(
             fouling_players=fouling_players,
-            reason="played_wrong_suit" if fouling_players else "",
+            reason=foul_reason if fouling_players else "",
             set_ended=len(fouling_players) > 0
         )
     
@@ -109,6 +140,15 @@ class RuleEngine:
         2. A later round occurs with a committed card
         3. New lead calls a different suit
         4. Stacker still has the called suit in remaining hand
+        
+        Args:
+            set_state: Current set state
+            round_state: Current round state
+            stacker_id: Player who stacked
+            committed_card: Card being auto-played from stack
+        
+        Returns:
+            True if stacker fouled
         """
         stack_state = set_state.stack_state
         if not stack_state or not stack_state.interrupted:
@@ -121,6 +161,7 @@ class RuleEngine:
         # Check if stacker has the lead suit in their remaining hand
         hand = set_state.hands.get(stacker_id)
         if hand and hand.has_suit(lead_suit):
+            print(f"    Stack foul: Player {stacker_id} committed {committed_card} but has {lead_suit} cards")
             return True
         
         return False
@@ -190,6 +231,7 @@ class RuleEngine:
                 
                 # Set ends immediately
                 set_state.status = "ended"
+                print(f"  Set ended due to foul by {fouling_player}")
         
         else:
             # 3-4 player game rules
@@ -201,9 +243,11 @@ class RuleEngine:
                 # Remove from active players
                 if player_id in set_state.active_players:
                     set_state.active_players.remove(player_id)
+                    print(f"  Player {player_id} removed from active players (fouled out)")
             
             # If only one player remains, they win the set
             if len(set_state.active_players) == 1:
                 set_state.status = "ended"
+                print(f"  Set ended - only one player remains active")
         
         return score_changes

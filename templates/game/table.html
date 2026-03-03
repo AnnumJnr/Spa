@@ -1,3 +1,4 @@
+<!-- templates/game/table.html -->
 {% extends 'base.html' %}
 {% load static %}
 
@@ -54,24 +55,35 @@
             <!-- Player's cards will be rendered here by hand.js -->
         </div>
 
-        <!-- Play Button -->
-        <button id="play-btn" class="btn btn-primary btn-lg" disabled>
-            Play Card
-        </button>
-        <div id="game-notifications" class="game-notifications">
-                <!-- Notifications will appear here -->
+        <!-- Play Controls -->
+        <div class="play-controls">
+            <button id="play-btn" class="btn btn-primary btn-lg" disabled>
+                Play Card
+            </button>
+            
+            <!-- Stack Button and Gauge - NEW -->
+            <div class="stack-container" id="stack-container" style="display: none;">
+                <div class="stack-gauge">
+                    <div class="stack-gauge-fill" id="stack-gauge-fill" style="width: 0%;"></div>
+                </div>
+                <button id="stack-btn" class="btn btn-warning stack-btn" disabled>
+                    <span class="stack-icon">⚡</span>
+                    Stack
+                </button>
             </div>
+            
+            <!-- Stack Selection Controls - NEW (shown during stack mode) -->
+            <div class="stack-selection-controls" id="stack-selection-controls" style="display: none;">
+                <span class="stack-selection-text">Select cards to stack (in order)</span>
+                <div class="stack-selection-buttons">
+                    <button id="stack-confirm-btn" class="btn btn-success btn-sm">Confirm Stack</button>
+                    <button id="stack-cancel-btn" class="btn btn-secondary btn-sm">Cancel</button>
+                </div>
+            </div>
+            
+            <!-- Game Notifications -->
+            <div id="game-notifications" class="game-notifications"></div>
         </div>
-    </div>
-
-    <!-- Stack Container (Hidden initially) -->
-    <div class="stack-container hidden" id="stack-container">
-        <div class="stack-gauge">
-            <div class="stack-gauge-fill" id="stack-gauge-fill"></div>
-        </div>
-        <button id="stack-btn" class="btn btn-primary stack-btn">
-            Stack Cards
-        </button>
     </div>
 
     <!-- Notifications Container -->
@@ -89,8 +101,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Remove dom.js from here since it's already in base.html -->
-<!-- <script src="{% static 'js/utils/dom.js' %}"></script> -->
+<!-- Core utilities -->
+<script src="{% static 'js/utils/dom.js' %}"></script>
 
 <!-- WebSocket manager -->
 <script src="{% static 'js/core/socket.js' %}"></script>
@@ -98,6 +110,7 @@
 <!-- Game modules -->
 <script src="{% static 'js/game/board.js' %}"></script>
 <script src="{% static 'js/game/hand.js' %}"></script>
+<script src="{% static 'js/game/stack.js' %}"></script>  <!-- NEW -->
 <script src="{% static 'js/game/events.js' %}"></script>
 
 <!-- Initialize game -->
@@ -105,7 +118,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const config = window.GAME_CONFIG;
         
-        // Initialize game controller with config values
+        // Initialize game controller
         window.gameController = new GameEventHandler(config.gameId, config.playerId);
         window.gameController.connect();
     });

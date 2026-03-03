@@ -477,3 +477,131 @@
     min-width: auto;
   }
 }
+
+/* Stack UI Styles */
+/* Stack Container - positioned next to play button */
+.stack-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 15px;
+    position: relative; /* Remove fixed positioning */
+    bottom: auto;
+    left: auto;
+    transform: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+    min-width: auto;
+}
+
+/* Keep the gauge and button styles as they are */
+.stack-gauge {
+    width: 100px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--border-color, #444);
+}
+
+.stack-gauge-fill {
+    height: 100%;
+    width: 0%;
+    background: #4caf50;
+    transition: width 0.1s linear;
+}
+
+.stack-gauge-fill[style*="width: 100%"] {
+    background: #ffd700;
+    box-shadow: 0 0 10px #ffd700;
+}
+
+.stack-btn {
+    background: #ffd700;
+    color: #1a2a1a;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s;
+}
+
+.stack-btn:hover:not(:disabled) {
+    background: #ffed4a;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px #ffd700;
+}
+
+.stack-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.stack-btn.pulse-animation {
+    animation: pulse 1.5s infinite;
+}
+
+.stack-icon {
+    font-size: 1.2em;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); box-shadow: 0 0 20px #ffd700; }
+    100% { transform: scale(1); }
+}
+
+/* Stack selection mode */
+.stack-selection-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    margin-left: 15px;
+    padding: 10px;
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 8px;
+    border: 1px solid #ffd700;
+}
+
+.stack-selection-text {
+    font-size: 12px;
+    color: #ffd700;
+}
+
+.stack-selection-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Stack selected cards */
+.card.stack-selected {
+    border: 3px solid #ffd700;
+    transform: translateY(-10px);
+    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.5);
+    position: relative;
+}
+
+.stack-order-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    background: #ffd700;
+    color: #1a2a1a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    border: 2px solid white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    z-index: 10;
+}

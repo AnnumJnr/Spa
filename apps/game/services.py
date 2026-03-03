@@ -154,7 +154,8 @@ class GameService:
                 'is_active': player.is_active,
                 'is_connected': player.is_connected,
                 'is_bot': player.is_bot,
-                'card_count': 0  # Will be updated from set state
+                'card_count': 0,  # Will be updated from set state
+                'has_used_stack': False,  # Will be updated from set state
             }
             players_data.append(player_data)
         
@@ -170,12 +171,25 @@ class GameService:
         if game.current_set:
             set_state = SetService.load_set_state(game.current_set, id_mapper)
             
-            # Update card counts
+            # Update card counts and stack usage
             for player_data in players_data:
                 player_uuid = player_data['id']
                 int_id = id_mapper.get_int(player_uuid)
                 if int_id and int_id in set_state.hands:
                     player_data['card_count'] = len(set_state.hands[int_id].cards)
+                # Check if player has used stack this set
+                if int_id and int_id in set_state.stack_used_by:
+                    player_data['has_used_stack'] = True
+            
+            # Add stack state to game state for UI
+            if set_state.stack_state:
+                state_dict['stack'] = {
+                    'owner_id': id_mapper.get_uuid(set_state.stack_state.owner_player_id),
+                    'stacked_cards': [card.to_dict() for card in set_state.stack_state.stacked_cards],
+                    'start_round': set_state.stack_state.start_round_index + 1,
+                    'interrupted': set_state.stack_state.interrupted,
+                    'interruption_round': set_state.stack_state.interruption_round + 1 if set_state.stack_state.interruption_round is not None else None
+                }
             
             # Add current round info
             state_dict['current_round'] = set_state.current_round_index + 1
@@ -214,7 +228,6 @@ class GameService:
             if current_round:
                 played_cards = []
                 for play in current_round.plays:
-                    # FIX: Use object notation instead of dictionary access
                     player_uuid = id_mapper.get_uuid(play.player_id)
                     if player_uuid:
                         played_cards.append({
@@ -304,7 +317,6 @@ class SetService:
         
         # Load deck from game
         deck = Deck.from_dict(game.deck_state)
-        reshuffled = False
         
         # Check if we need to reshuffle
         num_players = len(players)
@@ -312,11 +324,6 @@ class SetService:
             deck.reset()
             game.deck_state = deck.to_dict()
             game.save()
-            reshuffled = True
-            print(f"🔄 Deck reshuffled for set {set_number}")
-            
-            # TODO: Broadcast reshuffle event to all players
-            # This will be done through the channel layer
         
         # Deal hands - store with UUID string keys for database
         hands = {}
@@ -370,11 +377,8 @@ class SetService:
         set_obj.rounds = [first_round]
         set_obj.save()
         
-        # Return reshuffle status for notification
-        set_obj.reshuffled = reshuffled  # You might want to add this field to your Set model
-        
         return set_obj
-
+    
     @staticmethod
     def load_set_state(set_obj: Set, id_mapper: IDMapper) -> SetState:
         """
@@ -414,23 +418,40 @@ class SetService:
             
             rounds.append(round_state)  # Append only once!
         
-        # Load stack state
+        # Load stack state - FIXED: Handle both formats
         stack_state = None
         if set_obj.stack_state:
             stack_data = set_obj.stack_state
-            committed_cards = {}
-            for pid_key, cards_data in stack_data.get('committed_cards', {}).items():
-                cards = [Card.from_dict(cd) for cd in cards_data]
-                # pid_key is already integer in stack_state
-                committed_cards[int(pid_key)] = cards
+            stacked_cards = []
             
-            stack_state = StackState(
-                owner_id=int(stack_data['owner_id']),
-                num_cards=stack_data['num_cards'],
-                committed_cards=committed_cards,
-                interrupted=stack_data.get('interrupted', False),
-                interrupter_id=int(stack_data['interrupter_id']) if stack_data.get('interrupter_id') else None
-            )
+            # Try to get stacked_cards from the new format
+            if 'stacked_cards' in stack_data:
+                stacked_cards = [Card.from_dict(cd) for cd in stack_data.get('stacked_cards', [])]
+            # Fall back to old format with committed_cards
+            elif 'committed_cards' in stack_data:
+                committed_cards = {}
+                for pid_key, cards_data in stack_data.get('committed_cards', {}).items():
+                    cards = [Card.from_dict(cd) for cd in cards_data]
+                    committed_cards[int(pid_key)] = cards
+                # Flatten committed_cards to stacked_cards
+                for cards in committed_cards.values():
+                    stacked_cards.extend(cards)
+            
+            # Get owner ID - try both possible keys
+            owner_id = None
+            if 'owner_player_id' in stack_data:
+                owner_id = int(stack_data['owner_player_id'])
+            elif 'owner_id' in stack_data:
+                owner_id = int(stack_data['owner_id'])
+            
+            if owner_id and stacked_cards:
+                stack_state = StackState(
+                    owner_player_id=owner_id,
+                    stacked_cards=stacked_cards,
+                    start_round_index=stack_data.get('start_round_index', 0),
+                    interrupted=stack_data.get('interrupted', False),
+                    interruption_round=stack_data.get('interruption_round')
+                )
         
         # Convert active players from UUID strings to integers
         active_players = []
@@ -493,16 +514,22 @@ class SetService:
         # Save stack state (keep integer IDs)
         if set_state.stack_state:
             stack = set_state.stack_state
-            committed_cards = {
-                str(pid): [card.to_dict() for card in cards]
-                for pid, cards in stack.committed_cards.items()
+            
+            # FIX: Use stacked_cards instead of committed_cards
+            # Create a dictionary with the stack owner's cards for backward compatibility
+            stacked_cards_dict = {
+                str(stack.owner_player_id): [card.to_dict() for card in stack.stacked_cards]
             }
+            
             set_obj.stack_state = {
-                'owner_id': str(stack.owner_id),
-                'num_cards': stack.num_cards,
-                'committed_cards': committed_cards,
+                'owner_id': str(stack.owner_player_id),
+                'owner_player_id': str(stack.owner_player_id),  # Add both for compatibility
+                'num_cards': len(stack.stacked_cards),
+                'stacked_cards': [card.to_dict() for card in stack.stacked_cards],  # Main storage
+                'committed_cards': stacked_cards_dict,  # Keep for backward compatibility
+                'start_round_index': stack.start_round_index,
                 'interrupted': stack.interrupted,
-                'interrupter_id': str(stack.interrupter_id) if stack.interrupter_id else None
+                'interruption_round': stack.interruption_round
             }
         else:
             set_obj.stack_state = None
@@ -526,7 +553,7 @@ class SetService:
         set_obj.stack_used_by = stack_used_by_uuids
         
         set_obj.save()
-    
+            
     @staticmethod
     @transaction.atomic
     def end_set(
@@ -547,8 +574,6 @@ class SetService:
         Returns:
             Results dictionary with UUID strings for player IDs
         """
-        print("\n=== ENDING SET ===")
-        
         # Build game state for scoring (with integer IDs)
         game_state = GameState(
             game_id=str(game.id),
@@ -565,12 +590,8 @@ class SetService:
                 is_active=player.is_active
             )
         
-        # Set turn order from players
-        game_state.turn_order = [id_mapper.get_int_required(str(p.id)) for p in players]
-        
         # Determine winner (returns integer ID)
         winner_int_id = TransitionEngine.determine_set_winner(set_state)
-        print(f"Winner int ID from engine: {winner_int_id}")
         
         # SAFETY CHECK: Ensure winner ID is valid
         if winner_int_id is None or winner_int_id == 0:
@@ -579,7 +600,6 @@ class SetService:
             winner_int_id = active_players[0] if active_players else 1
             print(f"Fallback winner ID: {winner_int_id}")
         
-        # Map winner ID to UUID and get player object
         try:
             winner_uuid = id_mapper.get_uuid_required(winner_int_id)
             winner = GamePlayer.objects.get(id=winner_uuid)
@@ -623,6 +643,9 @@ class SetService:
         set_obj.score_awarded = score_awarded
         set_obj.completed_at = timezone.now()
         set_obj.save()
+        
+        # Clear any active stack at end of set
+        StackManager.clear_stack(set_state)
         
         # Check win condition
         game_winner_uuid = None
@@ -669,6 +692,7 @@ class SetService:
             'game_winner_id': game_winner_uuid
         }
 
+
 class CardPlayService:
     """Service for handling card plays."""
     
@@ -681,6 +705,7 @@ class CardPlayService:
     ) -> Tuple[bool, Optional[str], Optional[Dict]]:
         """
         Process a card play.
+        Now includes auto-play from stack.
         """
         print("\n" + "="*60)
         print("CARD PLAY ATTEMPT")
@@ -731,7 +756,7 @@ class CardPlayService:
         player_int_id = id_mapper.get_int_required(str(player.id))
         print(f"10. Player integer ID: {player_int_id}")
         
-        # Check if this is an auto-play from stack
+        # CHECK FOR AUTO-PLAY FROM STACK
         committed_card = StackManager.should_auto_play_from_stack(
             set_state,
             player_int_id,
@@ -740,7 +765,9 @@ class CardPlayService:
         
         if committed_card:
             card = committed_card
-            print(f"11. Auto-playing committed card: {card}")
+            print(f"11. ⭐ Auto-playing committed stack card: {card}")
+            # Override the card_dict for event data
+            card_dict = card.to_dict()
         
         # Get current round
         current_round = set_state.get_current_round()
@@ -775,7 +802,7 @@ class CardPlayService:
         current_round.add_play(player_int_id, card)
         print(f"17. Added play. Now {len(current_round.plays)} plays in round")
         
-        # Remove card from hand
+        # Remove card from hand (if it's not already removed by stack)
         hand = set_state.hands.get(player_int_id)
         if hand and hand.has_card(card):
             hand.remove_card(card)
@@ -846,74 +873,183 @@ class CardPlayService:
     
     @staticmethod
     @transaction.atomic
-    def initiate_stack(
-        game: Game,
-        player: GamePlayer,
-        card_dicts: List[Dict]
-    ) -> Tuple[bool, Optional[str], Optional[Dict]]:
+    def initiate_stack(game: Game, player: GamePlayer, cards_data: list) -> tuple:
         """
         Initiate stacking for a player.
+        The first card is played immediately, remaining cards are stacked for future rounds.
         
         Args:
             game: Game instance
             player: Player initiating stack
-            card_dicts: List of card dictionaries to stack
+            cards_data: List of card dictionaries to stack (in play order)
         
         Returns:
             (success, error_message, event_data)
         """
-        set_obj = game.current_set
-        if not set_obj:
-            return False, "No active set", None
+        print(f"\n{'='*60}")
+        print(f"STACK INITIATION")
+        print(f"{'='*60}")
+        print(f"Player: {player.display_name} ({player.id})")
+        print(f"Cards to stack: {len(cards_data)}")
         
-        # Create ID mapper
-        players = list(game.players.all().order_by('seat_position'))
-        id_mapper = IDMapper(players)
-        
-        # Load states
-        game_state_obj = GameState(
-            game_id=str(game.id),
-            target_score=game.target_score
-        )
-        set_state = SetService.load_set_state(set_obj, id_mapper)
-        
-        player_int_id = id_mapper.get_int_required(str(player.id))
-        
-        # Validate can stack
-        can_stack, error = CardValidator.can_stack(
-            game_state_obj,
-            set_state,
-            player_int_id
-        )
-        
-        if not can_stack:
-            return False, error, None
-        
-        # Convert cards
-        cards = [Card(suit=cd['suit'], rank=cd['rank']) for cd in card_dicts]
-        
-        # Validate cards
-        is_valid, error = CardValidator.validate_stack_cards(
-            set_state,
-            player_int_id,
-            cards
-        )
-        
-        if not is_valid:
-            return False, error, None
-        
-        # Initiate stack
-        stack_state = StackManager.initiate_stack(set_state, player_int_id, cards)
-        
-        # Save state
-        SetService.save_set_state(set_obj, set_state, id_mapper)
-        
-        event_data = {
-            'player_id': player_int_id,
-            'num_cards_stacked': len(cards),
-            'stack_state': stack_state.to_dict()
-        }
-        
-        return True, None, event_data
-    
-
+        try:
+            # Get current set
+            set_obj = game.current_set
+            if not set_obj:
+                return False, "No active set", None
+            
+            # Get all players and create ID mapper
+            players = list(game.players.all().order_by('seat_position'))
+            id_mapper = IDMapper(players)
+            
+            # Load set state
+            set_state = SetService.load_set_state(set_obj, id_mapper)
+            
+            # Convert player UUID to integer
+            player_int_id = id_mapper.get_int_required(str(player.id))
+            
+            # Convert card data to Card objects
+            from apps.game.engine.card import Card
+            cards = [Card.from_dict(card_dict) for card_dict in cards_data]
+            
+            # Validate stack
+            from apps.game.engine.validator import CardValidator
+            can_stack, error = CardValidator.can_stack(None, set_state, player_int_id)
+            if not can_stack:
+                print(f"✗ Cannot stack: {error}")
+                return False, error, None
+            
+            valid, error = CardValidator.validate_stack_cards(set_state, player_int_id, cards)
+            if not valid:
+                print(f"✗ Invalid stack cards: {error}")
+                return False, error, None
+            
+            # CRITICAL: Take the first card and play it immediately in the current round
+            first_card = cards[0]
+            remaining_cards = cards[1:] if len(cards) > 1 else []
+            
+            print(f"  First card '{first_card}' will be played immediately")
+            if remaining_cards:
+                print(f"  Remaining {len(remaining_cards)} cards will be stacked")
+            
+            # Get current round
+            current_round = set_state.get_current_round()
+            if not current_round:
+                return False, "No active round", None
+            
+            # Check if player has already played this round
+            if current_round.has_played(player_int_id):
+                print(f"⚠️ Player {player_int_id} has already played in this round")
+                return False, "Player has already played this round", None
+            
+            # Validate the first card play
+            game_state_obj = GameState(
+                game_id=str(game.id),
+                target_score=game.target_score,
+                lead_player_id=id_mapper.get_int_required(str(game.current_lead.id)),
+                status=game.status
+            )
+            
+            for p in players:
+                p_int_id = id_mapper.get_int_required(str(p.id))
+                game_state_obj.players[p_int_id] = PlayerState(
+                    player_id=p_int_id,
+                    score=p.score,
+                    is_active=p.is_active
+                )
+            
+            is_valid, error = CardValidator.validate_card_play(
+                game_state_obj,
+                set_state,
+                player_int_id,
+                first_card
+            )
+            
+            if not is_valid:
+                print(f"✗ First card validation failed: {error}")
+                return False, error, None
+            
+            # Add the first card to current round
+            current_round.add_play(player_int_id, first_card)
+            print(f"  ✓ First card added to current round")
+            
+            # Remove first card from hand (already will be removed by stack, but we do it explicitly)
+            hand = set_state.hands.get(player_int_id)
+            if hand and hand.has_card(first_card):
+                hand.remove_card(first_card)
+            
+            # If there are remaining cards, stack them for future rounds
+            if remaining_cards:
+                from apps.game.engine.stack import StackManager
+                stack_state = StackManager.initiate_stack(set_state, player_int_id, remaining_cards)
+                print(f"  ✓ Stack initiated with {len(remaining_cards)} cards starting round {stack_state.start_round_index}")
+            else:
+                # No remaining cards, just mark player as used stack
+                set_state.stack_used_by.append(player_int_id)
+                print(f"  ✓ Player marked as used stack (no cards remaining)")
+            
+            # Save state
+            SetService.save_set_state(set_obj, set_state, id_mapper)
+            print(f"✓ Set state saved")
+            
+            # Check if all players have played in this round
+            played_player_ids = set(play.player_id for play in current_round.plays)
+            all_played = len(played_player_ids) == len(set_state.active_players)
+            
+            # Prepare event data for broadcasting
+            event_data = {
+                'player_id': str(player.id),
+                'first_card': first_card.to_dict(),
+                'num_cards_stacked': len(remaining_cards),
+                'stacked_cards': [card.to_dict() for card in remaining_cards],
+                'round_complete': all_played
+            }
+            
+            print(f"{'='*60}\n")
+            
+            # If round is now complete, process round completion
+            if all_played:
+                print("Round complete after stack - processing round completion")
+                from apps.game.services import CardPlayService
+                # This is a bit recursive, but we need to trigger round completion
+                # You might want to call process_round_completion directly here
+                results = TransitionEngine.process_round_completion(
+                    game_state_obj,
+                    set_state,
+                    current_round
+                )
+                
+                # Update game lead
+                new_lead_uuid = id_mapper.get_uuid_required(game_state_obj.lead_player_id)
+                game.current_lead = GamePlayer.objects.get(id=new_lead_uuid)
+                game.save()
+                
+                # Save updated state
+                SetService.save_set_state(set_obj, set_state, id_mapper)
+                
+                event_data['results'] = {
+                    'fouls': results['fouls'].to_dict() if results['fouls'] else None,
+                    'offset': results['offset'].to_dict() if results['offset'] else None,
+                    'set_ended': results['set_ended'],
+                    'round_advanced': results.get('round_advanced', False)
+                }
+                
+                # Handle set end
+                if results['set_ended']:
+                    print("SET ENDED")
+                    end_results = SetService.end_set(game, set_obj, set_state, id_mapper)
+                    event_data['set_end_results'] = end_results
+            
+            return True, None, event_data
+            
+        except Exception as e:
+            print(f"✗ Stack initiation error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, str(e), None
+                    
+        except Exception as e:
+            print(f"✗ Stack initiation error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, str(e), None

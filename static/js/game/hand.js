@@ -79,35 +79,69 @@ class PlayerHand {
         const cardElements = this.handContainer.querySelectorAll('.card:not(.disabled)');
         
         cardElements.forEach(cardElement => {
-            cardElement.addEventListener('click', () => {
+            // Remove any existing listeners to prevent duplicates
+            cardElement.removeEventListener('click', this._cardClickHandler);
+            
+            // Create bound handler
+            this._cardClickHandler = (event) => {
                 const suit = cardElement.dataset.suit;
                 const rank = cardElement.dataset.rank;
                 
-                // Parse rank to match backend format
+                // STACK MODE: route to stack callback
+                if (this.isStackSelectionMode) {
+                    if (this.stackSelectionCallback) {
+                        const cardData = {
+                            suit: suit,
+                            rank: isNaN(rank) ? rank : parseInt(rank)
+                        };
+                        this.stackSelectionCallback(cardElement, cardData);
+                    }
+                    return;
+                }
+                
+                // NORMAL MODE: single card selection
                 const parsedRank = isNaN(rank) ? rank : parseInt(rank);
                 
-                this.selectCard({ suit, rank: parsedRank });
-            });
+                // Toggle selection if clicking same card
+                if (this.selectedCard && 
+                    this.selectedCard.suit === suit && 
+                    this.selectedCard.rank === parsedRank) {
+                    this.selectedCard = null;
+                } else {
+                    this.selectedCard = { suit, rank: parsedRank };
+                }
+                
+                this.render();
+                this.updatePlayButton();
+            };
+            
+            cardElement.addEventListener('click', this._cardClickHandler);
         });
     }
-    
+
     /**
-     * Select a card
+     * Enable stack selection mode
+     * @param {Function} onCardClick - Callback when card is clicked during stack selection
      */
-    selectCard(card) {
-        // Toggle selection if clicking same card
-        if (this.selectedCard && 
-            this.selectedCard.suit === card.suit && 
-            this.selectedCard.rank === card.rank) {
-            this.selectedCard = null;
-        } else {
-            this.selectedCard = card;
-        }
-        
-        this.render();
-        this.updatePlayButton();
+    enableStackSelectionMode(onCardClick) {
+        console.log('🔄 Enabling stack selection mode');
+        this.isStackSelectionMode = true;
+        this.stackSelectionCallback = onCardClick;
+        // No need to re-attach listeners - they'll check the flag
     }
-    
+
+    /**
+     * Disable stack selection mode
+     */
+    disableStackSelectionMode() {
+        console.log('🔄 Disabling stack selection mode');
+        this.isStackSelectionMode = false;
+        this.stackSelectionCallback = null;
+        // No need to re-attach listeners - they'll use normal mode
+    }
+
+
+
     /**
      * Remove a card from hand after playing
      */
@@ -212,6 +246,26 @@ class PlayerHand {
      */
     getCardCount() {
         return this.cards.length;
+    }
+
+    
+    /**
+     * Enable stack selection mode
+     * @param {Function} onCardClick - Callback when card is clicked during stack selection
+     */
+    enableStackSelectionMode(onCardClick) {
+        console.log('🔄 Enabling stack selection mode');
+        this.isStackSelectionMode = true;
+        this.stackSelectionCallback = onCardClick;
+    }
+
+    /**
+     * Disable stack selection mode
+     */
+    disableStackSelectionMode() {
+        console.log('🔄 Disabling stack selection mode');
+        this.isStackSelectionMode = false;
+        this.stackSelectionCallback = null;
     }
 }
 

@@ -1,5 +1,6 @@
 """
 WebSocket event builders and types.
+Now includes stack events.
 """
 from typing import Dict, Any, Optional, List
 
@@ -32,7 +33,7 @@ class GameEvent:
     # Lead events
     LEAD_CHANGED = "lead_changed"
     
-    # Stack events
+    # Stack events - NEW
     STACK_INITIATED = "stack_initiated"
     STACK_INTERRUPTED = "stack_interrupted"
     STACK_GAUGE_UPDATE = "stack_gauge_update"
@@ -169,29 +170,55 @@ class EventBuilder:
             data["offsetting_card"] = offsetting_card
         return EventBuilder.build_event(GameEvent.LEAD_CHANGED, data)
     
+    # NEW STACK EVENTS
+    
     @staticmethod
-    def stack_initiated(player_id: str, num_cards: int) -> Dict:
-        """Player initiated stacking."""
+    def stack_initiated(player_id: str, num_cards: int, stacked_cards: List[Dict]) -> Dict:
+        """
+        Player initiated stacking.
+        
+        Args:
+            player_id: Player who stacked
+            num_cards: Number of cards stacked
+            stacked_cards: List of cards that were stacked (for UI display)
+        """
         return EventBuilder.build_event(GameEvent.STACK_INITIATED, {
             "player_id": player_id,
-            "num_cards_stacked": num_cards
+            "num_cards_stacked": num_cards,
+            "stacked_cards": stacked_cards
         })
     
     @staticmethod
-    def stack_interrupted(interrupting_player_id: str, stack_owner_id: str) -> Dict:
-        """Stack was interrupted."""
+    def stack_interrupted(interrupting_player_id: str, stack_owner_id: str, round_number: int) -> Dict:
+        """
+        Stack was interrupted by another player offsetting.
+        
+        Args:
+            interrupting_player_id: Player who offset and interrupted the stack
+            stack_owner_id: Player who owned the stack
+            round_number: Round at which interruption occurred
+        """
         return EventBuilder.build_event(GameEvent.STACK_INTERRUPTED, {
             "interrupting_player_id": interrupting_player_id,
-            "stack_owner_id": stack_owner_id
+            "stack_owner_id": stack_owner_id,
+            "round": round_number
         })
     
     @staticmethod
-    def stack_gauge_update(player_id: str, gauge_percentage: int) -> Dict:
-        """Stack gauge update."""
-        return EventBuilder.build_event(GameEvent.STACK_GAUGE_UPDATE, {
-            "player_id": player_id,
-            "percentage": gauge_percentage
-        })
+    def stack_gauge_update(percentage: int, next_available_player_id: Optional[str] = None) -> Dict:
+        """
+        Stack gauge fill update.
+        
+        Args:
+            percentage: Fill percentage (0-100)
+            next_available_player_id: Player who can stack when gauge fills
+        """
+        data = {
+            "percentage": percentage
+        }
+        if next_available_player_id is not None:
+            data["next_available_player_id"] = next_available_player_id
+        return EventBuilder.build_event(GameEvent.STACK_GAUGE_UPDATE, data)
     
     @staticmethod
     def foul_detected(fouling_players: List[str], reason: str, penalties: Dict[str, int]) -> Dict:

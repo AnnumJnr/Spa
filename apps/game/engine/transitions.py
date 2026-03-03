@@ -1,10 +1,12 @@
 """
 Game state transitions: lead changes, round progression.
+Now includes stack interruption.
 """
 from typing import Optional, List
 from .state import GameState, SetState, RoundState
 from .card import Card
 from .rules import RuleEngine
+from .stack import StackManager
 
 
 class TransitionEngine:
@@ -113,10 +115,11 @@ class TransitionEngine:
     ) -> dict:
         """
         Process all checks when a round completes (all players played).
+        Now includes stack interruption.
         """
         print("\n=== PROCESS ROUND COMPLETION ===")
         print(f"Round index: {round_state.round_index}")
-        print(f"Number of plays: {len(round_state.plays)}")
+        print(f"Current lead before processing: {set_state.lead_player_id}")
         
         results = {
             'fouls': None,
@@ -131,7 +134,6 @@ class TransitionEngine:
         
         if foul_result.has_fouls():
             print(f"Fouls detected: {foul_result.fouling_players}")
-            # Apply foul penalties
             RuleEngine.apply_foul_penalties(
                 game_state,
                 set_state,
@@ -143,10 +145,39 @@ class TransitionEngine:
                 results['set_ended'] = True
                 return results
         
-        # Check for offsets to determine final lead
+# Determine who won the round (player with highest card of lead suit)
+        round_winner = round_state.lead_player_id  # Start with initial lead player
+        highest_card = None
+        
+        print(f"Determining round winner from {len(round_state.plays)} plays...")
+        for play in round_state.plays:
+            print(f"  Player {play.player_id} played {play.card}")
+            if play.card.suit == round_state.lead_suit:
+                if highest_card is None or play.card.value > highest_card.value:
+                    highest_card = play.card
+                    round_winner = play.player_id
+                    print(f"    → New highest card! Winner now: {round_winner}")
+        
+        print(f"🏆 Round winner: {round_winner} with {highest_card}")
+        
+        # CRITICAL FIX: The round winner BECOMES the new lead (not the next player)
+        # In Spa, whoever plays the highest card of the lead suit becomes the new lead
+        next_lead = round_winner
+        print(f"➡️ Next lead: {next_lead} (the round winner)")
+        
+        # Update lead in both game state and set state
+        TransitionEngine.change_lead(
+            game_state,
+            set_state,
+            next_lead
+        )
+        print(f"✓ Lead updated to player {next_lead}")
+        
+        # Check for offsets (for tracking and stack interruption)
+        # This tracks who offset whom during the round
         final_lead_player = round_state.lead_player_id
         final_lead_card = None
-        
+
         for play in round_state.plays:
             player_id = play.player_id
             card = play.card
@@ -159,20 +190,14 @@ class TransitionEngine:
             )
             
             if offset_result.offset_occurred:
-                print(f"Offset by player {player_id} with card {card}")
+                print(f"  Offset detected: player {player_id} with {card}")
                 final_lead_player = offset_result.new_lead_player_id
                 final_lead_card = offset_result.offsetting_card
                 results['offset'] = offset_result
                 
-                # Update lead in states
-                TransitionEngine.change_lead(
-                    game_state,
-                    set_state,
-                    final_lead_player
-                )
-                
                 # Check if stack should be interrupted
                 if set_state.stack_state and not set_state.stack_state.interrupted:
+                    # If the offset player is NOT the stack owner, interrupt the stack
                     if final_lead_player != set_state.stack_state.owner_player_id:
                         from .stack import StackManager
                         StackManager.interrupt_stack(
@@ -180,23 +205,23 @@ class TransitionEngine:
                             final_lead_player,
                             round_state.round_index
                         )
-                        print(f"Stack interrupted by player {final_lead_player}")
+                        print(f"  ⚡ Stack interrupted by player {final_lead_player}")
         
-        # Advance to next round
-        print(f"Advancing to next round with lead {final_lead_player}")
-        next_round = TransitionEngine.advance_round(set_state, final_lead_player)
+        # Advance to next round with the round winner as lead
+        print(f"Advancing to next round with lead {next_lead}")
+        next_round = TransitionEngine.advance_round(set_state, next_lead)
         results['round_advanced'] = True
         
         if next_round is None:
             print("Set ended - no next round")
             results['set_ended'] = True
         else:
-            print(f"Next round created: {next_round.round_index}")
+            print(f"Next round created: {next_round.round_index} with lead {next_round.lead_player_id}")
         
         print("=== END PROCESS ROUND COMPLETION ===\n")
         
         return results
-    
+        
     @staticmethod
     def determine_set_winner(set_state: SetState) -> Optional[int]:
         """

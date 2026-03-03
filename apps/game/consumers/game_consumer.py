@@ -120,13 +120,21 @@ class GameConsumer(AsyncWebsocketConsumer):
             # Step 7: Send game state
             print("\n--- STEP 7: Sending game state ---")
             game_state = await self.get_game_state()
+            if game_state.get('current_round'):
+                self.current_round_number = game_state['current_round']
             await self.send(text_data=json.dumps(
                 EventBuilder.game_state(game_state)
             ))
             print("✓ Game state sent to client")
             
-            # Step 8: Check if current player is a bot and trigger their turn
-            print("\n--- STEP 8: Checking if bot should play ---")
+            # Step 8: Start stack gauge (ALWAYS run for testing - works in practice mode too)
+            print("\n--- STEP 8: Starting stack gauge ---")
+            # Start the gauge as a background task so it doesn't block
+            asyncio.create_task(self.start_stack_gauge(reset_first=True))
+            print("✓ Stack gauge started")
+            
+            # Step 9: Check if current player is a bot and trigger their turn
+            print("\n--- STEP 9: Checking if bot should play ---")
             current_player_id = game_state.get('current_player_id')
             if current_player_id:
                 print(f"Current player to move: {current_player_id}")
@@ -258,8 +266,12 @@ class GameConsumer(AsyncWebsocketConsumer):
             if not event_data.get('round_complete'):
                 await self.check_and_trigger_next_turn()
     
+
     async def handle_stack(self, data: Dict[str, Any]):
-        """Handle stack initiation."""
+        """
+        Handle stack initiation - plays first card immediately, stacks the rest.
+        """
+        print(f"\n=== HANDLE STACK REQUEST ===")
         cards_data = data.get('cards')
         
         if not cards_data:
@@ -268,27 +280,150 @@ class GameConsumer(AsyncWebsocketConsumer):
             ))
             return
         
-        # Process stack
+        print(f"Player {self.player_id} wants to stack {len(cards_data)} cards")
+        
+        # Validate and initiate stack (plays first card, stacks the rest)
         success, error, event_data = await self.initiate_stack(cards_data)
         
         if not success:
+            print(f"✗ Stack failed: {error}")
             await self.send(text_data=json.dumps(
                 EventBuilder.error(error, "STACK_FAILED")
             ))
             return
         
-        # Broadcast stack to all players - use string ID
+        print(f"✓ Stack initiated successfully")
+        print(f"  First card played: {event_data.get('first_card')}")
+        print(f"  Cards stacked: {event_data.get('num_cards_stacked', 0)}")
+        
+        # CRITICAL Step 1: Broadcast the FIRST CARD as a card_played event
+        # This lets everyone know a card was played
         await self.channel_layer.group_send(
             self.game_group_name,
             {
                 'type': 'broadcast_event',
-                'event': EventBuilder.stack_initiated(
+                'event': EventBuilder.card_played(
                     self.player_id,
-                    event_data.get('num_cards_stacked', 0)
+                    event_data.get('first_card'),
+                    event_data.get('round_complete', False)
                 )
             }
         )
-    
+        print("✓ First card played event broadcast")
+        
+        # Step 2: Broadcast stack initiated event (for the remaining cards)
+        if event_data.get('num_cards_stacked', 0) > 0:
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': EventBuilder.stack_initiated(
+                        self.player_id,
+                        event_data.get('num_cards_stacked', 0),
+                        event_data.get('stacked_cards', [])
+                    )
+                }
+            )
+            print(f"✓ Stack initiated event broadcast ({event_data.get('num_cards_stacked', 0)} cards stacked)")
+            
+            # Step 3: Start gauge animation (non-blocking)
+            asyncio.create_task(self.start_stack_gauge(reset_first=True))
+            print("✓ Stack gauge animation started (background)")
+        
+        # Step 4: Handle round completion if needed
+        if event_data.get('round_complete'):
+            print("Round complete after stack")
+            await self.handle_round_completion(event_data)
+        
+        # Step 5: Handle set end if needed
+        if event_data.get('set_end_results'):
+            print("Set ended after stack")
+            await self.handle_set_end(event_data['set_end_results'])
+        else:
+            # Step 6: CRITICAL - Trigger next turn (if round not complete)
+            if not event_data.get('round_complete'):
+                print("Checking next turn after stack...")
+                await self.check_and_trigger_next_turn()
+        
+        print("=== END HANDLE STACK ===\n")
+                
+    async def start_stack_gauge(self, reset_first=False):
+        """
+        Start the stack gauge animation for all players.
+        If reset_first=True, reset to 0 before starting.
+        """
+        print("\n=== STACK GAUGE STARTING ===")
+        
+        if reset_first:
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': EventBuilder.stack_gauge_update(0, None)
+                }
+            )
+            await asyncio.sleep(0.1)
+        
+        # Animate from 0 to 100 over 10 seconds
+        steps = 20  # Update every 0.5 seconds
+        for step in range(steps + 1):
+            percentage = int((step / steps) * 100)
+            
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': EventBuilder.stack_gauge_update(percentage, None)
+                }
+            )
+            
+            if percentage < 100:
+                await asyncio.sleep(0.5)  # 0.5s * 20 = 10 seconds
+        
+        print("✓ Stack gauge complete")
+        print("=== STACK GAUGE END ===\n")
+        
+    async def reset_stack_gauge(self):
+        """Reset the stack gauge to 0."""
+        await self.channel_layer.group_send(
+            self.game_group_name,
+            {
+                'type': 'broadcast_event',
+                'event': EventBuilder.stack_gauge_update(0, None)
+            }
+        )
+
+
+    async def handle_stack_interrupted_event(self, event):
+        """Handle stack interrupted event broadcast."""
+        try:
+            data = event['event']['data']
+            print(f"\n=== STACK INTERRUPTED ===")
+            print(f"Stack owned by {data.get('stack_owner_id')} interrupted by {data.get('interrupting_player_id')}")
+            # UI will handle showing notification
+        except Exception as e:
+            print(f"Error in handle_stack_interrupted_event: {e}")
+
+
+    async def handle_stack_gauge_update(self, event):
+        """
+        Handle stack gauge update events.
+        These are broadcast to all players to animate the gauge.
+        """
+        try:
+            data = event['event']['data']
+            percentage = data.get('percentage', 0)
+            print(f"📊 Stack gauge update: {percentage}%")
+            # The frontend will handle the actual UI update
+            # We just need to pass the event through
+            pass
+        except Exception as e:
+            print(f"Error in handle_stack_gauge_update: {e}")
+            import traceback
+            traceback.print_exc()
+
+
+
     async def handle_request_state(self):
         """Handle state request."""
         game_state = await self.get_game_state()
@@ -313,7 +448,10 @@ class GameConsumer(AsyncWebsocketConsumer):
             traceback.print_exc()
     
     async def check_and_trigger_next_turn(self):
-        """Check whose turn it is next and trigger appropriately."""
+        """
+        Check whose turn it is next and trigger appropriately.
+        Also handles auto-playing stacked cards.
+        """
         try:
             print("\n=== CHECKING NEXT TURN ===")
             
@@ -327,7 +465,16 @@ class GameConsumer(AsyncWebsocketConsumer):
             
             print(f"Next player should be: {current_player_id}")
             
-            # Check if this player is a bot
+            # Check if current player has a committed stack card to auto-play
+            has_stack_card = await self.check_for_auto_play_stack(current_player_id)
+            
+            if has_stack_card:
+                print(f"Player {current_player_id} has committed stack card - auto-playing...")
+                await self.auto_play_stack_card(current_player_id)
+                return
+            
+            # No stack card - proceed with normal turn logic
+            # Check if this player is a bot or human
             players = await self.get_game_players()
             for player in players:
                 if str(player.id) == current_player_id:
@@ -351,7 +498,171 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"Error in check_and_trigger_next_turn: {e}")
             import traceback
             traceback.print_exc()
-
+    
+    @database_sync_to_async
+    def check_for_auto_play_stack(self, player_id: str) -> bool:
+        """
+        Check if a player has a committed stack card for the current round.
+        
+        Args:
+            player_id: Player UUID string
+        
+        Returns:
+            True if player has a committed card to auto-play
+        """
+        try:
+            from apps.game.models import Game
+            from apps.game.services import SetService
+            from apps.game.utils import IDMapper
+            from apps.game.engine.stack import StackManager
+            
+            game = Game.objects.get(id=self.game_id)
+            set_obj = game.current_set
+            
+            if not set_obj:
+                return False
+            
+            # Get players and create ID mapper
+            players = list(game.players.all().order_by('seat_position'))
+            id_mapper = IDMapper(players)
+            
+            # Load set state
+            set_state = SetService.load_set_state(set_obj, id_mapper)
+            
+            # Convert player UUID to int
+            player_int_id = id_mapper.get_int(player_id)
+            if not player_int_id:
+                return False
+            
+            # Check if there's a committed card for this round
+            committed_card = StackManager.should_auto_play_from_stack(
+                set_state,
+                player_int_id,
+                set_state.current_round_index
+            )
+            
+            if committed_card:
+                print(f"  ✓ Found committed stack card: {committed_card}")
+                return True
+            
+            return False
+            
+        except Exception as e:
+            print(f"Error checking for auto-play: {e}")
+            return False
+    
+    async def auto_play_stack_card(self, player_id: str):
+        """
+        Automatically play the committed stack card for a player.
+        
+        Args:
+            player_id: Player UUID string
+        """
+        try:
+            print(f"\n=== AUTO-PLAYING STACK CARD ===")
+            print(f"Player: {player_id}")
+            
+            # Get the committed card
+            committed_card_dict = await self.get_committed_stack_card(player_id)
+            
+            if not committed_card_dict:
+                print("✗ No committed card found")
+                return
+            
+            print(f"Auto-playing card: {committed_card_dict}")
+            
+            # Play the card through normal card play service
+            success, error, event_data = await self.play_card(committed_card_dict)
+            
+            if not success:
+                print(f"✗ Auto-play failed: {error}")
+                return
+            
+            print("✓ Stack card auto-played successfully")
+            
+            # Broadcast card play
+            await self.channel_layer.group_send(
+                self.game_group_name,
+                {
+                    'type': 'broadcast_event',
+                    'event': EventBuilder.card_played(
+                        player_id,
+                        committed_card_dict,
+                        event_data.get('round_complete', False)
+                    )
+                }
+            )
+            
+            # Handle round completion if needed
+            if event_data.get('round_complete'):
+                await self.handle_round_completion(event_data)
+            
+            # Handle set end if needed
+            if event_data.get('set_end_results'):
+                await self.handle_set_end(event_data['set_end_results'])
+            else:
+                # Trigger next turn
+                if not event_data.get('round_complete'):
+                    await self.check_and_trigger_next_turn()
+            
+            print("=== END AUTO-PLAY ===\n")
+            
+        except Exception as e:
+            print(f"Error in auto_play_stack_card: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    @database_sync_to_async
+    def get_committed_stack_card(self, player_id: str) -> dict:
+        """
+        Get the committed stack card for the current round.
+        
+        Args:
+            player_id: Player UUID string
+        
+        Returns:
+            Card dictionary or None
+        """
+        try:
+            from apps.game.models import Game
+            from apps.game.services import SetService
+            from apps.game.utils import IDMapper
+            from apps.game.engine.stack import StackManager
+            
+            game = Game.objects.get(id=self.game_id)
+            set_obj = game.current_set
+            
+            if not set_obj:
+                return None
+            
+            # Get players and create ID mapper
+            players = list(game.players.all().order_by('seat_position'))
+            id_mapper = IDMapper(players)
+            
+            # Load set state
+            set_state = SetService.load_set_state(set_obj, id_mapper)
+            
+            # Convert player UUID to int
+            player_int_id = id_mapper.get_int(player_id)
+            if not player_int_id:
+                return None
+            
+            # Get committed card
+            committed_card = StackManager.should_auto_play_from_stack(
+                set_state,
+                player_int_id,
+                set_state.current_round_index
+            )
+            
+            if committed_card:
+                return committed_card.to_dict()
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error getting committed card: {e}")
+            return None
+        
     async def process_round_after_bot(self, event):
         """
         Handler called after bot plays and viewing delay completes.
@@ -439,6 +750,17 @@ class GameConsumer(AsyncWebsocketConsumer):
                 }
             )
             
+            # Check if this was the last round of the set
+            # We can detect this by checking if the new round index is 1 (meaning we just completed round 5)
+            # or if the game state shows the set as ended
+            current_round = updated_state.get('current_round', 0)
+            if current_round == 1 or current_round == 0:
+                # This means we either:
+                # - Just completed round 5 and are starting round 1 of next set (current_round=1)
+                # - The set ended and no new round exists (current_round=0)
+                print("🔄 Set transition detected - restarting stack gauge")
+                await self.start_stack_gauge(reset_first=True)
+            
             # Check next turn for the new round
             await self.check_and_trigger_next_turn()
             
@@ -518,14 +840,29 @@ class GameConsumer(AsyncWebsocketConsumer):
             
             if event_type == GameEvent.CARD_PLAYED:
                 await self.handle_card_played_event(event)
+            elif event_type == GameEvent.STACK_INTERRUPTED:
+                await self.handle_stack_interrupted_event(event)
+            elif event_type == GameEvent.STACK_GAUGE_UPDATE:
+                await self.handle_stack_gauge_update(event)
             
             await self.send(text_data=json.dumps(event_data))
             
+            if event_type == GameEvent.GAME_STATE:
+                round_num = event_data.get('data', {}).get('current_round')
+                if round_num:
+                    self.current_round_number = round_num
+                
+                await self.check_pending_round_completion()
+                await self.check_and_trigger_next_turn()
+                
+            elif event_type == GameEvent.YOUR_TURN:
+                print(f"Your turn for player: {event_data.get('data', {}).get('player_id')}")
+                    
         except Exception as e:
             print(f"Error in broadcast_event: {e}")
             import traceback
             traceback.print_exc()
-    
+                
     # Database operations (async wrappers)
     
     @database_sync_to_async
@@ -584,6 +921,9 @@ class GameConsumer(AsyncWebsocketConsumer):
             import traceback
             traceback.print_exc()
             return False, str(e), None
+
+
+
     
     @database_sync_to_async
     def initiate_stack(self, cards_data: list):

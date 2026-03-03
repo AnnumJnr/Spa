@@ -18,6 +18,7 @@ class GameEventHandler {
         this.socket = null;
         this.board = new GameBoard();
         this.hand = new PlayerHand();
+        this.stackManager = new StackManager(this.hand, this);
         
         this.gameState = null;
         this.isConnected = false;
@@ -63,10 +64,14 @@ class GameEventHandler {
         this.socket.on('lead_changed', (data) => this.onLeadChanged(data));
         this.socket.on('round_started', (data) => this.onRoundStarted(data));
         
+        // STACK EVENTS - ADD THESE LINES
+        this.socket.on('stack_initiated', (data) => this.onStackInitiated(data));
+        this.socket.on('stack_interrupted', (data) => this.onStackInterrupted(data));
+        this.socket.on('stack_gauge_update', (data) => this.onStackGaugeUpdate(data));
+        
         // Connect
         this.socket.connect();
-    }
-    
+    }    
     /**
      * Disconnect from WebSocket
      */
@@ -110,6 +115,33 @@ class GameEventHandler {
         });
     }
     
+    /**
+     * Check if current player has used stack this set
+     */
+    playerHasUsedStack() {
+        const player = this.board.players.find(p => p.id === this.playerId);
+        return player ? player.has_used_stack : false;
+    }
+    
+    /**
+     * Stack cards request
+     */
+    stackCards(cards) {
+        if (!this.isConnected) return;
+        
+        console.log('Stacking cards:', cards);
+        
+        this.socket.send({
+            action: 'stack',
+            cards: cards.map(c => ({
+                suit: c.suit,
+                rank: c.rank
+            }))
+        });
+        
+        this.stackManager.exitStackMode();
+    }
+    
     // ========== Event Handlers ==========
     
     onConnected() {
@@ -146,6 +178,18 @@ class GameEventHandler {
         if (data.hand) {
             console.log('Initializing hand with:', data.hand);
             this.hand.initialize(data.hand);
+        }
+        
+        // Show/hide stack container based on game mode
+        // Stack is only available in multiplayer, not in practice vs bots
+        const isPracticeMode = data.players ? data.players.every(p => p.is_bot) : false;
+        if (this.stackManager) {
+            this.stackManager.setVisible(!isPracticeMode);
+        }
+        
+        // Update stack gauge if present
+        if (data.stack) {
+            console.log('Active stack:', data.stack);
         }
         
         // Render played cards if any
@@ -276,7 +320,7 @@ class GameEventHandler {
             }
         }
     }
-
+    
     /**
      * Handle your turn event
      */
@@ -360,6 +404,43 @@ class GameEventHandler {
         // Highlight the lead player
         if (lead_player_id) {
             this.board.highlightCurrentPlayer(lead_player_id);
+        }
+    }
+    
+    onStackInitiated(data) {
+        console.log('Stack initiated:', data);
+        
+        // Show the first card as played
+        if (data.first_card) {
+            this.onCardPlayed({
+                player_id: data.player_id,
+                card: data.first_card,
+                round_complete: data.round_complete
+            });
+        }
+        
+        if (this.stackManager) {
+            this.stackManager.onStackInitiated(data);
+        }
+    }
+    
+    /**
+     * Handle stack interrupted event
+     */
+    onStackInterrupted(data) {
+        console.log('Stack interrupted:', data);
+        if (this.stackManager) {
+            this.stackManager.onStackInterrupted(data);
+        }
+    }
+    
+    /**
+     * Handle stack gauge update event
+     */
+    onStackGaugeUpdate(data) {
+        console.log('Stack gauge update:', data);
+        if (this.stackManager) {
+            this.stackManager.updateGauge(data.percentage);
         }
     }
     
