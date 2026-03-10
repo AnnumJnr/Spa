@@ -812,7 +812,7 @@ class CardPlayService:
         SetService.save_set_state(set_obj, set_state, id_mapper)
         print("19. State saved to database")
         
-        # Check if all active players have played - use unique player IDs
+# Check if all active players have played - use unique player IDs
         played_player_ids = set(play.player_id for play in current_round.plays)
         all_played = len(played_player_ids) == len(set_state.active_players)
         print(f"20. Unique players who have played: {played_player_ids}")
@@ -824,7 +824,7 @@ class CardPlayService:
             'round_complete': all_played
         }
         
-        # Process round completion if all played
+        # Process round completion if all players have played
         if all_played:
             print("22. ALL PLAYERS HAVE PLAYED - Processing round completion")
             results = TransitionEngine.process_round_completion(
@@ -841,22 +841,22 @@ class CardPlayService:
             # Save updated state
             SetService.save_set_state(set_obj, set_state, id_mapper)
             
-            # Update player scores in DB if fouls occurred
-            if results['fouls'] and results['fouls'].has_fouls():
-                for foul_int_id in results['fouls'].fouling_players:
-                    foul_uuid = id_mapper.get_uuid_required(foul_int_id)
-                    foul_player = GamePlayer.objects.get(id=foul_uuid)
-                    foul_player_state = game_state_obj.players[foul_int_id]
-                    foul_player.score = foul_player_state.score
-                    foul_player.is_active = foul_player_state.is_active
-                    foul_player.save()
-            
             event_data['results'] = {
                 'fouls': results['fouls'].to_dict() if results['fouls'] else None,
                 'offset': results['offset'].to_dict() if results['offset'] else None,
                 'set_ended': results['set_ended'],
                 'round_advanced': results.get('round_advanced', False)
             }
+            
+            # Check for foul penalties
+            if results['fouls'] and results['fouls'].has_fouls():
+                for foul_player_id in results['fouls'].fouling_players:
+                    foul_player_uuid = id_mapper.get_uuid_required(foul_player_id)
+                    foul_player = GamePlayer.objects.get(id=foul_player_uuid)
+                    foul_player_state = game_state_obj.players[foul_player_id]
+                    foul_player.score = foul_player_state.score
+                    foul_player.is_active = foul_player_state.is_active
+                    foul_player.save()
             
             # Handle set end
             if results['set_ended']:

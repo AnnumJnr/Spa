@@ -3,7 +3,6 @@ Background tasks for bot actions.
 """
 import random
 import time
-from typing import Optional
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
@@ -20,31 +19,36 @@ class BotTurnHandler:
     @staticmethod
     def process_bot_turn(game_id: str, bot_player_id: str):
         """
-        Process a bot's turn - ONLY plays card and adds viewing delay.
-        All broadcasting and state management is handled by the consumer.
+        Process a bot's turn.
+        
+        Simple flow:
+        1. Bot thinks
+        2. Bot plays card
+        3. Broadcast card_played event
+        4. Wait (viewing delay)
+        5. Done - consumer will handle next turn
         
         Args:
             game_id: Game ID (UUID string)
             bot_player_id: Bot player ID (UUID string)
         """
-        print(f"\n=== BOT TURN EXECUTION ===")
-        print(f"Game ID: {game_id}")
-        print(f"Bot Player ID: {bot_player_id}")
+        print(f"\n=== BOT TURN START ===")
+        print(f"Bot: {bot_player_id}")
         
         try:
             game = Game.objects.get(id=game_id)
             bot_player = GamePlayer.objects.get(id=bot_player_id)
             
             if not bot_player.is_bot:
-                print(f"Player {bot_player_id} is not a bot")
+                print(f"Not a bot - skipping")
                 return
             
             # Bot thinking delay
-            thinking_delay = random.uniform(0.5, 1.2)
-            print(f"Bot thinking for {thinking_delay:.2f} seconds...")
+            thinking_delay = random.uniform(0.3, 0.8)
+            print(f"Thinking: {thinking_delay:.2f}s...")
             time.sleep(thinking_delay)
             
-            # Get all players and create ID mapper
+            # Get players and ID mapper
             players = list(game.players.all().order_by('seat_position'))
             id_mapper = IDMapper(players)
             
@@ -83,7 +87,7 @@ class BotTurnHandler:
             # Choose and play card
             card = BotService.get_bot_card_choice(bot, game_state, set_state, id_mapper)
             card_dict = card.to_dict()
-            print(f"Bot chose: {card_dict}")
+            print(f"Plays: {card_dict}")
             
             # Execute card play
             success, error, event_data = CardPlayService.play_card(
@@ -91,38 +95,40 @@ class BotTurnHandler:
             )
             
             if not success:
-                print(f"Bot card play failed: {error}")
+                print(f"✗ Play failed: {error}")
                 return
             
-            print("✓ Bot card play successful")
+            print("✓ Card played successfully")
             
-            # Broadcast card played event immediately
-            # This is the ONLY broadcast from bot - consumer handles the rest
+            round_complete = event_data.get('round_complete', False)
+            
+            # Broadcast card_played event
             BotTurnHandler._broadcast_event(
                 game_id,
                 EventBuilder.card_played(
                     str(bot_player.id),
                     card_dict,
-                    event_data.get('round_complete', False),
+                    round_complete,
                     current_round_number
                 )
             )
-            print("✓ Card played event broadcast")
+            print("✓ Event broadcast")
             
-            # VIEWING DELAY - let players see the cards on screen
-            num_players = len(players)
-            viewing_delay = 2.5 if num_players == 2 else 1.5
-            
-            print(f"Viewing delay ({viewing_delay}s) - cards remain visible...")
+            # Viewing delay - let players see the card
+            viewing_delay = 0.5
+            print(f"Viewing delay: {viewing_delay}s...")
             time.sleep(viewing_delay)
-            print("✓ Viewing delay complete")
             
-            # After viewing delay, trigger consumer to process everything
-            print("Triggering consumer to process round completion...")
-            BotTurnHandler._trigger_consumer_processing(game_id)
-            print("✓ Consumer processing triggered")
+            # If round completed, add extra time to see all cards
+            if round_complete:
+                transition_delay = 1.0
+                print(f"Round complete - transition delay: {transition_delay}s...")
+                time.sleep(transition_delay)
             
-            print("=== BOT TURN COMPLETE ===\n")
+            print("=== BOT TURN END ===\n")
+            
+            # Signal consumer that bot turn is done
+            BotTurnHandler._signal_turn_complete(game_id)
                 
         except Exception as e:
             print(f"✗ Bot turn error: {e}")
@@ -146,21 +152,20 @@ class BotTurnHandler:
             print(f"Broadcast error: {e}")
     
     @staticmethod
-    def _trigger_consumer_processing(game_id: str):
+    def _signal_turn_complete(game_id: str):
         """
-        Trigger consumer to process round completion and broadcast game state.
-        This sends a special message that tells the consumer to handle everything.
+        Signal that bot turn is complete.
+        Consumer will check next turn.
         """
         try:
             channel_layer = get_channel_layer()
             group_name = f'game_{game_id}'
             
-            # Send trigger to consumer to process the round
             async_to_sync(channel_layer.group_send)(
                 group_name,
                 {
-                    'type': 'process_round_after_bot',
+                    'type': 'bot_turn_complete',
                 }
             )
         except Exception as e:
-            print(f"✗ Trigger consumer error: {e}")
+            print(f"Signal error: {e}")

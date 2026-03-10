@@ -129,6 +129,14 @@ REST_FRAMEWORK = {
     ],
 }
 
+# Simple in-memory cache (default)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",

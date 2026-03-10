@@ -152,24 +152,32 @@ class GameBoard {
         this.playedCardsContainer.innerHTML = cardsHTML;
     }
     
-    /**
-     * Add a single played card to the center
-     */
-    addPlayedCard(playerId, card) {
-        // FIXED: Remove parseInt
-        const player = this.players.find(p => p.id === playerId);
-        const playerName = player ? (player.display_name || player.name) : 'Unknown';
-        
-        const cardWrapper = document.createElement('div');
-        cardWrapper.className = 'played-card-wrapper';
-        cardWrapper.innerHTML = `
-            <div class="played-card-label">${playerName}</div>
-            ${this.createCardHTML(card)}
-        `;
-        
-        this.playedCardsContainer?.appendChild(cardWrapper);
-    }
-    
+        /**
+         * Add a single played card to the center - REPLACES any existing card from this player
+         */
+        addPlayedCard(playerId, card) {
+            // Remove any existing card from this player
+            const existingWrapper = this.playedCardsContainer?.querySelector(
+                `[data-player-id="${playerId}"]`
+            );
+            if (existingWrapper) {
+                existingWrapper.remove();
+            }
+            
+            const player = this.players.find(p => p.id === playerId);
+            const playerName = player ? (player.display_name || player.name) : 'Unknown';
+            
+            const cardWrapper = document.createElement('div');
+            cardWrapper.className = 'played-card-wrapper';
+            cardWrapper.setAttribute('data-player-id', playerId); // Add this for lookup
+            cardWrapper.innerHTML = `
+                <div class="played-card-label">${playerName}</div>
+                ${this.createCardHTML(card)}
+            `;
+            
+            this.playedCardsContainer?.appendChild(cardWrapper);
+        }  
+          
     /**
      * Clear played cards from center
      */

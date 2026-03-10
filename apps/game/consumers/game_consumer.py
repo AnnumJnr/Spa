@@ -666,24 +666,49 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def process_round_after_bot(self, event):
         """
         Handler called after bot plays and viewing delay completes.
-        This processes pending round completions and broadcasts updated game state.
         
-        Called when bot sends 'process_round_after_bot' message.
+        CRITICAL: Only ONE consumer processes to avoid duplicate triggers.
         """
         try:
+            # Use cache lock to ensure only one consumer processes
+            from django.core.cache import cache
+            cache_key = f"bot_processing_lock_{self.game_id}"
+            
+            acquired_lock = cache.add(cache_key, self.player_id, timeout=3)
+            
+            if not acquired_lock:
+                print(f"\n=== PROCESS ROUND AFTER BOT (Player {self.player_id}) ===")
+                print("Another consumer is processing - skipping")
+                print("=== END PROCESS ROUND AFTER BOT (SKIPPED) ===\n")
+                return
+            
             print(f"\n=== PROCESS ROUND AFTER BOT (Player {self.player_id}) ===")
+            print(f"✓ Acquired processing lock")
             
             # Small delay to ensure DB is fully updated
             await asyncio.sleep(0.2)
             
             # Broadcast updated game state to all players
-            print("Broadcasting updated game state to all players...")
+            print("Broadcasting game state to all players...")
             await self.broadcast_game_state_to_all()
             print("✓ Game state broadcast complete")
             
-            # Check if next player is a bot
+            # CRITICAL: Check if we just completed a round
+            game_state = await self.get_game_state()
+            current_round = game_state.get('current_round', 0)
+            played_cards_count = len(game_state.get('played_cards', []))
+            
+            # If round just started (no cards played yet), wait before triggering bot
+            if played_cards_count == 0 and current_round > 0:
+                print(f"New round {current_round} just started - adding brief pause...")
+                await asyncio.sleep(0.5)  # Brief pause for UI to update
+            
+            # Now check and trigger next turn
             print("Checking if next player is a bot...")
             await self.check_and_trigger_next_turn()
+            
+            # Release lock
+            cache.delete(cache_key)
             
             print("=== END PROCESS ROUND AFTER BOT ===\n")
             
@@ -691,7 +716,127 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"Error processing round after bot: {e}")
             import traceback
             traceback.print_exc()
-    
+            
+            # Clean up lock
+            try:
+                from django.core.cache import cache
+                cache_key = f"bot_processing_lock_{self.game_id}"
+                cache.delete(cache_key)
+            except:
+                pass
+        
+    async def bot_turn_complete(self, event):
+        """
+        Handler called when a bot finishes their turn completely.
+        Only ONE consumer should process this.
+        """
+        try:
+            # Use cache lock
+            from django.core.cache import cache
+            cache_key = f"bot_complete_lock_{self.game_id}"
+            
+            acquired_lock = cache.add(cache_key, self.player_id, timeout=2)
+            
+            if not acquired_lock:
+                return  # Another consumer is handling it
+            
+            print(f"\n=== BOT TURN COMPLETE (Consumer {self.player_id}) ===")
+            
+            # Small delay for DB consistency
+            await asyncio.sleep(0.1)
+            
+            # Get current game state
+            game_state = await self.get_game_state()
+            current_round = game_state.get('current_round', 0)
+            played_cards_count = len(game_state.get('played_cards', []))
+            
+            # Check if round just completed (no cards in new round)
+            if played_cards_count == 0 and current_round > 0:
+                print(f"Round completed - broadcasting new round state")
+                # Broadcast the new round state
+                await self.broadcast_game_state_to_all()
+                # Brief pause for frontend to update
+                await asyncio.sleep(0.3)
+            
+            # Check and trigger next turn
+            print("Checking next turn...")
+            await self.check_and_trigger_next_turn()
+            
+            # Release lock
+            cache.delete(cache_key)
+            
+            print("=== END BOT TURN COMPLETE ===\n")
+            
+        except Exception as e:
+            print(f"Error in bot_turn_complete: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Clean up lock
+            try:
+                from django.core.cache import cache
+                cache_key = f"bot_complete_lock_{self.game_id}"
+                cache.delete(cache_key)
+            except:
+                pass
+
+
+    async def bot_turn_complete(self, event):
+        """
+        Handler called when a bot finishes their turn completely.
+        Only ONE consumer should process this.
+        """
+        try:
+            # Use cache lock
+            from django.core.cache import cache
+            cache_key = f"bot_complete_lock_{self.game_id}"
+            
+            acquired_lock = cache.add(cache_key, self.player_id, timeout=2)
+            
+            if not acquired_lock:
+                return  # Another consumer is handling it
+            
+            print(f"\n=== BOT TURN COMPLETE (Consumer {self.player_id}) ===")
+            
+            # Small delay for DB consistency
+            await asyncio.sleep(0.1)
+            
+            # Get current game state
+            game_state = await self.get_game_state()
+            current_round = game_state.get('current_round', 0)
+            played_cards_count = len(game_state.get('played_cards', []))
+            
+            # Check if round just completed (no cards in new round)
+            if played_cards_count == 0 and current_round > 0:
+                print(f"Round completed - broadcasting new round state")
+                # Broadcast the new round state
+                await self.broadcast_game_state_to_all()
+                # Brief pause for frontend to update
+                await asyncio.sleep(0.3)
+            
+            # Check and trigger next turn
+            print("Checking next turn...")
+            await self.check_and_trigger_next_turn()
+            
+            # Release lock
+            cache.delete(cache_key)
+            
+            print("=== END BOT TURN COMPLETE ===\n")
+            
+        except Exception as e:
+            print(f"Error in bot_turn_complete: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Clean up lock
+            try:
+                from django.core.cache import cache
+                cache_key = f"bot_complete_lock_{self.game_id}"
+                cache.delete(cache_key)
+            except:
+                pass
+
+                                        
     async def broadcast_game_state_to_all(self):
         """
         Broadcast updated game state to ALL players.
@@ -771,23 +916,22 @@ class GameConsumer(AsyncWebsocketConsumer):
             traceback.print_exc()
     
     async def trigger_specific_bot_turn(self, bot_player_id: str):
-        """Trigger a specific bot's turn."""
+        """
+        Trigger a specific bot's turn.
+        Uses await to make it blocking - next turn won't trigger until this completes.
+        """
         try:
-            print(f"Triggering specific bot turn: {bot_player_id}")
-            asyncio.create_task(self.process_specific_bot_turn_async(str(self.game_id), bot_player_id))
-        except Exception as e:
-            print(f"Trigger specific bot turn error: {e}")
-
-    async def process_specific_bot_turn_async(self, game_id: str, bot_player_id: str):
-        """Process specific bot turn asynchronously."""
-        try:
-            from apps.bots.tasks import BotTurnHandler
+            print(f"Triggering bot: {bot_player_id}")
+            
+            # Use database_sync_to_async to run bot turn synchronously
             await database_sync_to_async(BotTurnHandler.process_bot_turn)(
-                game_id, 
+                str(self.game_id), 
                 bot_player_id
             )
+            
         except Exception as e:
-            print(f"Specific bot turn processing error: {e}")    
+            print(f"Bot trigger error: {e}")
+
     
     async def handle_set_end(self, set_end_results: Dict[str, Any]):
         """Handle set end events."""

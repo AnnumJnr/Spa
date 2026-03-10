@@ -167,7 +167,6 @@ class GameEventHandler {
      */
     onGameState(data) {
         console.log('=== GAME STATE RECEIVED ===');
-        console.log('Full game state:', JSON.stringify(data, null, 2));
         
         this.gameState = data;
         
@@ -176,12 +175,10 @@ class GameEventHandler {
         
         // Initialize player's hand
         if (data.hand) {
-            console.log('Initializing hand with:', data.hand);
             this.hand.initialize(data.hand);
         }
         
-        // Show/hide stack container based on game mode
-        // Stack is only available in multiplayer, not in practice vs bots
+        // Show/hide stack container
         const isPracticeMode = data.players ? data.players.every(p => p.is_bot) : false;
         if (this.stackManager) {
             this.stackManager.setVisible(!isPracticeMode);
@@ -192,13 +189,27 @@ class GameEventHandler {
             console.log('Active stack:', data.stack);
         }
         
-        // Render played cards if any
-        if (data.played_cards && data.played_cards.length > 0) {
+        // CRITICAL: Only update played cards if this is initial load or round transition
+        const backendCardCount = (data.played_cards || []).length;
+        const frontendCardCount = this.currentRoundCards.length;
+        
+        // Case 1: Initial load - render cards from state
+        if (backendCardCount > 0 && frontendCardCount === 0) {
+            console.log('Initial load - rendering cards from state');
             this.currentRoundCards = data.played_cards;
+            this.board.clearPlayedCards();
             this.board.renderPlayedCards(data.played_cards);
-        } else {
+        }
+        // Case 2: Round transition - backend has 0 cards, we have cards
+        else if (backendCardCount === 0 && frontendCardCount > 0) {
+            console.log('Round transition - clearing cards');
             this.currentRoundCards = [];
             this.board.clearPlayedCards();
+        }
+        // Case 3: During round - trust card_played events, ignore game_state
+        else {
+            console.log('During round - keeping cards from card_played events');
+            // Don't update - card_played events handle this
         }
         
         // Update round info
@@ -206,11 +217,10 @@ class GameEventHandler {
             this.board.updateRoundInfo(data.current_round, data.total_rounds || 5);
         }
         
-        // Check if it's player's turn (compare as strings)
+        // Check if it's player's turn
         const isMyTurn = data.current_player_id === this.playerId;
         this.hand.setMyTurn(isMyTurn);
         
-        // Show turn notification in a non-intrusive way
         if (isMyTurn) {
             this.showTurnNotification();
         }
@@ -222,7 +232,7 @@ class GameEventHandler {
         
         this.hideLoading();
     }
-    
+
     /**
      * Show turn notification without blocking the board
      */
@@ -265,20 +275,15 @@ class GameEventHandler {
         }, 2000);
     }
     
-    /**
-     * Handle card played event
-     */
     onCardPlayed(data) {
         console.log('Card played:', data);
         
         const { player_id, card, round_complete } = data;
-        const isTwoPlayerGame = this.board.players.length === 2;
         
-        // If this player played the card, remove it from hand
+        // Update hand/opponent cards
         if (player_id === this.playerId) {
             this.hand.removeCard(card);
         } else {
-            // Update opponent's card count
             const player = this.board.players.find(p => p.id === player_id);
             if (player && player.card_count > 0) {
                 player.card_count--;
@@ -286,41 +291,21 @@ class GameEventHandler {
             }
         }
         
-        // Add card to played cards center
-        this.currentRoundCards.push({ player_id, card });
+        // Add card to board (use addPlayedCard which handles duplicates)
         this.board.addPlayedCard(player_id, card);
         
-        // Show subtle notification for non-player plays
+        // Track it
+        this.currentRoundCards = this.currentRoundCards.filter(p => p.player_id !== player_id);
+        this.currentRoundCards.push({ player_id, card });
+        
+        // Show notification
         if (player_id !== this.playerId) {
             const player = this.board.players.find(p => p.id === player_id);
             const playerName = player ? (player.display_name || player.name) : 'Opponent';
-            this.board.showNotification(`${playerName} played a card`, 'info', 800);
-        }
-        
-        // SPECIAL HANDLING FOR 1v1 MODE
-        if (round_complete) {
-            if (isTwoPlayerGame) {
-                // In 2-player games, delay the round transition so player can see opponent's card
-                console.log('2-player round complete - delaying transition for 2 seconds');
-                this.isDelayActive = true;
-                
-                // Disable the hand during delay
-                this.hand.setMyTurn(false);
-                
-                // Wait 2 seconds before allowing the round to complete
-                setTimeout(() => {
-                    console.log('Delay complete - round can now transition');
-                    this.isDelayActive = false;
-                    // Round completion will be handled by the server
-                    // We just needed to pause before the next round starts
-                }, 2000);
-            } else {
-                // For 3-4 player games, proceed normally
-                console.log('Multiplayer round complete - cards will stay until next round');
-            }
+            this.board.showNotification(`${playerName} played`, 'info', 500);
         }
     }
-    
+
     /**
      * Handle your turn event
      */
