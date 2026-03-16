@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Statistics - Coming Soon{% endblock %}
+
+{% block extra_css %}
+<style>
+    .coming-soon-container {
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #1a2a1a 0%, #2d4a2d 100%);
+        padding: 40px 20px;
+    }
+
+    .coming-soon-content {
+        text-align: center;
+        max-width: 600px;
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .coming-soon-icon {
+        font-size: 120px;
+        margin-bottom: 30px;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0px);
+        }
+        50% {
+            transform: translateY(-20px);
+        }
+    }
+
+    .coming-soon-title {
+        font-size: 48px;
+        font-weight: bold;
+        color: #ffd700;
+        margin-bottom: 20px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .coming-soon-subtitle {
+        font-size: 24px;
+        color: #fff;
+        margin-bottom: 30px;
+        opacity: 0.9;
+    }
+
+    .coming-soon-description {
+        font-size: 16px;
+        color: #ccc;
+        margin-bottom: 40px;
+        line-height: 1.6;
+    }
+
+    .feature-list {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 30px;
+        margin: 30px 0;
+        border: 2px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .feature-list h3 {
+        color: #ffd700;
+        font-size: 20px;
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+
+    .feature-list ul {
+        list-style: none;
+        padding: 0;
+        text-align: left;
+    }
+
+    .feature-list li {
+        color: #fff;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .feature-list li:last-child {
+        border-bottom: none;
+    }
+
+    .feature-list li::before {
+        content: "📊";
+        font-size: 20px;
+    }
+
+    .back-home-btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        color: white;
+        padding: 15px 40px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 18px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    }
+
+    .back-home-btn:hover {
+        background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .progress-note {
+        margin-top: 30px;
+        padding: 15px;
+        background: rgba(255, 193, 7, 0.1);
+        border-left: 4px solid #ffc107;
+        border-radius: 4px;
+        color: #ffc107;
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="coming-soon-container">
+    <div class="coming-soon-content">
+        <div class="coming-soon-icon">📈</div>
+        
+        <h1 class="coming-soon-title">Statistics</h1>
+        <h2 class="coming-soon-subtitle">Coming Soon</h2>
+        
+        <p class="coming-soon-description">
+            We're working hard to bring you comprehensive game statistics and analytics. 
+            Track your progress, analyze your gameplay, and compete with friends!
+        </p>
+
+        <div class="feature-list">
+            <h3>Planned Features</h3>
+            <ul>
+                <li>Win/Loss Ratio Tracking</li>
+                <li>Game History & Replays</li>
+                <li>Performance Analytics</li>
+                <li>Achievement System</li>
+                <li>Leaderboards</li>
+                <li>Personal Best Records</li>
+                <li>Strategy Insights</li>
+            </ul>
+        </div>
+
+        <div class="progress-note">
+            <strong>🚧 Phase 1 Complete:</strong> Core game functionality is live! Stats tracking will be available in Phase 2.
+        </div>
+
+        <a href="{% url 'frontend:home' %}" class="back-home-btn">
+            ← Back to Home
+        </a>
+    </div>
+</div>
+{% endblock %}

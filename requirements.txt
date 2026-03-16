@@ -3,10 +3,14 @@ djangorestframework
 channels
 djangorestframework-simplejwt
 django-cors-headers
-
 pytest
 pytest-django
 pytest-asyncio
+python-dotenv
 black
 flake8
 daphne
+channels-redis
+whitenoise
+psycopg2-binary
+gunicorn
