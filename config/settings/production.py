@@ -28,15 +28,33 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # WebSocket settings
 ASGI_APPLICATION = 'config.asgi.application'
 
-# Channels Layer with Redis
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+# Channels Layer with Redis (SSL SUPPORT FOR UPSTASH)
+redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+
+# Parse Redis URL to extract components
+if redis_url.startswith('rediss://'):
+    # SSL connection (Upstash)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [{
+                    "address": redis_url,
+                    "ssl_cert_reqs": None,  # Don't verify SSL cert
+                }],
+            },
         },
-    },
-}
+    }
+else:
+    # Non-SSL connection (local/other)
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [redis_url],
+            },
+        },
+    }
 
 # Security Settings
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
