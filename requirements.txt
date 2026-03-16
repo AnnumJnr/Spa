@@ -3,6 +3,7 @@ djangorestframework
 channels
 djangorestframework-simplejwt
 django-cors-headers
+dj-database-url
 pytest
 pytest-django
 pytest-asyncio
