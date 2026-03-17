@@ -2,8 +2,58 @@
  * Spa Game - Mobile Responsive Overrides
  */
 
-/* Mobile (default) - max 767px */
+/* ========== MOBILE NAVBAR FIX ========== */
 @media (max-width: 767px) {
+  /* Compact navbar */
+  .navbar {
+    padding: 0.5rem 0;
+    height: 50px;
+  }
+  
+  .navbar-container {
+    padding: 0 1rem;
+  }
+  
+  .navbar-brand {
+    font-size: 1.2rem;
+  }
+  
+  .brand-icon {
+    font-size: 1.5rem;
+  }
+  
+  .navbar-menu {
+    gap: 0.5rem;
+  }
+  
+  .nav-link {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+  }
+  
+  .btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+  }
+  
+  .user-name {
+    display: none; /* Hide username on mobile to save space */
+  }
+  
+  /* Adjust main content to account for smaller navbar */
+  .main-content {
+    padding-top: 0;
+  }
+  
+  .game-container {
+    height: calc(100vh - 50px);
+  }
+
   /* Typography adjustments */
   h1 { font-size: var(--text-3xl); }
   h2 { font-size: var(--text-2xl); }
@@ -11,16 +61,289 @@
   
   /* Cards smaller on mobile */
   .card {
-    width: 60px;
-    height: 84px;
+    width: 50px;
+    height: 70px;
   }
   
   .card-rank {
-    font-size: var(--text-lg);
+    font-size: 14px;
   }
   
   .card-suit {
-    font-size: var(--text-2xl);
+    font-size: 20px;
+  }
+  
+  /* Opponent cards smaller */
+  .card-back {
+    width: 40px;
+    height: 56px;
+  }
+  
+  .card-back .card-inner {
+    font-size: 8px;
+  }
+  
+  /* ========== HIDE DESKTOP SCORES PANEL ========== */
+  .scores-panel {
+    display: none !important;
+  }
+  
+  /* ========== MOBILE SCORE TOGGLE BUTTON ========== */
+  .mobile-score-toggle {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    z-index: 999;
+    background: var(--accent-gold);
+    color: #1a2a1a;
+    border: none;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+  
+  .mobile-score-toggle:active {
+    transform: scale(0.95);
+  }
+  
+  /* ========== MOBILE SCORES POPUP ========== */
+  .mobile-scores-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  
+  .mobile-scores-popup.show {
+    display: flex;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .mobile-scores-content {
+    background: var(--bg-secondary);
+    border-radius: 15px;
+    padding: 20px;
+    max-width: 300px;
+    width: 90%;
+    animation: slideUp 0.3s ease;
+    border: 3px solid var(--accent-gold);
+  }
+  
+  @keyframes slideUp {
+    from { 
+      transform: translateY(50px);
+      opacity: 0;
+    }
+    to { 
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .mobile-scores-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent-gold);
+  }
+  
+  .mobile-scores-title {
+    color: var(--accent-gold);
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  
+  .mobile-scores-close {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .mobile-scores-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .mobile-score-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    border-left: 3px solid transparent;
+  }
+  
+  .mobile-score-item.current-player {
+    border-left-color: var(--accent-gold);
+    background: rgba(255, 215, 0, 0.1);
+  }
+  
+  .mobile-score-name {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  
+  .mobile-score-value {
+    color: var(--accent-gold);
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+  
+  /* ========== ROUND INFO MOBILE ========== */
+  .round-info {
+    position: fixed;
+    top: 60px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid var(--accent-gold);
+    border-radius: 8px;
+    padding: 6px 12px;
+    z-index: 998;
+  }
+  
+  #round-number {
+    font-size: 0.85rem;
+    color: var(--accent-gold);
+  }
+  
+  /* ========== OPPONENTS AREA MOBILE ========== */
+  .opponents-area {
+    padding: 0.5rem;
+    min-height: auto;
+  }
+  
+  #opponents {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .opponent-player {
+    min-width: 70px;
+    gap: 0.3rem;
+  }
+  
+  .opponent-name {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+  }
+  
+  .opponent-score {
+    font-size: 0.85rem;
+  }
+  
+  .opponent-cards {
+    gap: -8px; /* Tighter overlap on mobile */
+  }
+  
+  /* ========== TABLE CENTER MOBILE ========== */
+  .table-center {
+    padding: 1rem 0.5rem;
+  }
+  
+  #played-cards {
+    gap: 0.5rem;
+    min-height: 80px;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  
+  .played-card-wrapper .card {
+    width: 50px;
+    height: 70px;
+  }
+  
+  .played-card-label {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+  }
+  
+  /* ========== PLAYER AREA MOBILE ========== */
+  .player-area {
+    padding: 0.5rem;
+  }
+  
+  .hand {
+    gap: -10px; /* Overlap cards on mobile */
+    margin-bottom: 0.5rem;
+    padding: 0;
+  }
+  
+  /* ========== PLAY CONTROLS MOBILE ========== */
+  .play-controls {
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  
+  #play-btn {
+    min-width: 150px;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+  
+  .game-notifications {
+    min-width: 200px;
+    height: 40px;
+    font-size: 0.8rem;
+    padding: 0 10px;
+  }
+  
+  /* ========== STACK CONTAINER MOBILE ========== */
+  .stack-container {
+    position: relative;
+    margin-left: 0;
+    gap: 8px;
+  }
+  
+  .stack-gauge {
+    width: 80px;
+    height: 8px;
+  }
+  
+  .stack-btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+  
+  .stack-selection-controls {
+    margin-left: 0;
+    padding: 8px;
+  }
+  
+  .stack-selection-text {
+    font-size: 0.7rem;
   }
   
   /* Toast notifications full width */
@@ -42,27 +365,26 @@
     display: block;
     width: 100%;
   }
-  
-  /* Stack container at bottom */
-  .stack-container {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: var(--space-4);
-    background: var(--bg-secondary);
-  }
 }
 
-/* Tablet - 768px to 1023px */
+/* ========== TABLET ========== */
 @media (min-width: 768px) and (max-width: 1023px) {
   .card {
     width: 70px;
     height: 98px;
   }
+  
+  /* Show desktop scores panel on tablet */
+  .mobile-score-toggle {
+    display: none;
+  }
+  
+  .mobile-scores-popup {
+    display: none !important;
+  }
 }
 
-/* Desktop - 1024px and up */
+/* ========== DESKTOP ========== */
 @media (min-width: 1024px) {
   .card {
     width: 90px;
@@ -73,12 +395,26 @@
     max-width: 1200px;
     margin: 0 auto;
   }
+  
+  /* Hide mobile score toggle on desktop */
+  .mobile-score-toggle {
+    display: none;
+  }
+  
+  .mobile-scores-popup {
+    display: none !important;
+  }
 }
 
 /* Landscape mode mobile */
 @media (max-height: 500px) and (orientation: landscape) {
   .navbar {
-    padding: var(--space-2) 0;
+    padding: 0.3rem 0;
+    height: 40px;
+  }
+  
+  .game-container {
+    height: calc(100vh - 40px);
   }
   
   .hero h1 {
@@ -87,6 +423,17 @@
   
   .main-content {
     padding: var(--space-3);
+  }
+  
+  .mobile-score-toggle {
+    top: 50px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  
+  .round-info {
+    top: 50px;
   }
 }
 

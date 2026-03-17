@@ -94,6 +94,10 @@ class GameBoard {
         }).join('');
         
         this.scoresListContainer.innerHTML = scoresHTML;
+
+        if (typeof window.updateMobileScores === 'function') {
+            window.updateMobileScores();
+        }
     }
     
     /**

@@ -90,7 +90,28 @@
     <div class="notifications" id="notifications">
         <!-- Dynamic notifications will appear here -->
     </div>
+
+    <div class="game-container">
+    <!-- MOBILE SCORE TOGGLE BUTTON (Mobile only) -->
+    <button class="mobile-score-toggle" id="mobile-score-btn" style="display: none;">
+        📊
+    </button>
+    
+    <!-- MOBILE SCORES POPUP (Mobile only) -->
+    <div class="mobile-scores-popup" id="mobile-scores-popup">
+        <div class="mobile-scores-content">
+            <div class="mobile-scores-header">
+                <h3 class="mobile-scores-title">Scores</h3>
+                <button class="mobile-scores-close" id="mobile-scores-close">×</button>
+            </div>
+            <div class="mobile-scores-list" id="mobile-scores-list">
+                <!-- Scores will be populated here -->
+            </div>
+        </div>
+    </div>
+
 </div>
+
 
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loading-overlay">
@@ -122,5 +143,72 @@
         window.gameController = new GameEventHandler(config.gameId, config.playerId);
         window.gameController.connect();
     });
+</script>
+
+<!-- Mobile score toggle functionality -->
+<script>
+(function() {
+    const scoreBtn = document.getElementById('mobile-score-btn');
+    const scorePopup = document.getElementById('mobile-scores-popup');
+    const scoreClose = document.getElementById('mobile-scores-close');
+    const mobileScoresList = document.getElementById('mobile-scores-list');
+    
+    // Show mobile score button only on mobile
+    if (window.innerWidth <= 767) {
+        scoreBtn.style.display = 'flex';
+    }
+    
+    // Toggle score popup
+    scoreBtn?.addEventListener('click', () => {
+        scorePopup.classList.add('show');
+        updateMobileScores();
+    });
+    
+    // Close popup
+    scoreClose?.addEventListener('click', () => {
+        scorePopup.classList.remove('show');
+    });
+    
+    // Close on background click
+    scorePopup?.addEventListener('click', (e) => {
+        if (e.target === scorePopup) {
+            scorePopup.classList.remove('show');
+        }
+    });
+    
+    // Update mobile scores from desktop scores
+    function updateMobileScores() {
+        const desktopScores = document.querySelectorAll('.scores-panel .score-item');
+        if (!mobileScoresList || desktopScores.length === 0) return;
+        
+        const scoresHTML = Array.from(desktopScores).map(item => {
+            const name = item.querySelector('.score-name')?.textContent || '';
+            const value = item.querySelector('.score-value')?.textContent || '0';
+            const isCurrent = item.classList.contains('current-player');
+            
+            return `
+                <div class="mobile-score-item ${isCurrent ? 'current-player' : ''}">
+                    <div class="mobile-score-name">${name}</div>
+                    <div class="mobile-score-value">${value}</div>
+                </div>
+            `;
+        }).join('');
+        
+        mobileScoresList.innerHTML = scoresHTML;
+    }
+    
+    // Expose function globally so board.js can call it
+    window.updateMobileScores = updateMobileScores;
+    
+    // Update on window resize
+    window.addEventListener('resize', () => {
+        if (window.innerWidth <= 767) {
+            scoreBtn.style.display = 'flex';
+        } else {
+            scoreBtn.style.display = 'none';
+            scorePopup.classList.remove('show');
+        }
+    });
+})();
 </script>
 {% endblock %}
