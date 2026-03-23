@@ -252,19 +252,19 @@ class GameConsumer(AsyncWebsocketConsumer):
             }
         )
         
-        # Handle round completion events
-        if event_data.get('round_complete'):
-            print("\n=== ROUND COMPLETE DETECTED IN CONSUMER ===")
-            await self.handle_round_completion(event_data)
-        
-        # Handle set end
+        # Handle set end first (takes priority over round completion logic)
         if event_data.get('set_end_results'):
             print("\n=== SET END DETECTED IN CONSUMER ===")
             await self.handle_set_end(event_data['set_end_results'])
+            return  # Game may have ended - do not trigger next turn
+        
+        # Handle round completion events (only if set did NOT end)
+        if event_data.get('round_complete'):
+            print("\n=== ROUND COMPLETE DETECTED IN CONSUMER ===")
+            await self.handle_round_completion(event_data)
         else:
-            # Check next turn after human play (if round not complete)
-            if not event_data.get('round_complete'):
-                await self.check_and_trigger_next_turn()
+            # Mid-round: check next turn after human play
+            await self.check_and_trigger_next_turn()
     
 
     async def handle_stack(self, data: Dict[str, Any]):
@@ -330,20 +330,20 @@ class GameConsumer(AsyncWebsocketConsumer):
             asyncio.create_task(self.start_stack_gauge(reset_first=True))
             print("✓ Stack gauge animation started (background)")
         
-        # Step 4: Handle round completion if needed
-        if event_data.get('round_complete'):
-            print("Round complete after stack")
-            await self.handle_round_completion(event_data)
-        
-        # Step 5: Handle set end if needed
+        # Step 4: Handle set end first (takes priority)
         if event_data.get('set_end_results'):
             print("Set ended after stack")
             await self.handle_set_end(event_data['set_end_results'])
+            return  # Game may have ended - do not trigger next turn
+        
+        # Step 5: Handle round completion if needed (only if set did NOT end)
+        if event_data.get('round_complete'):
+            print("Round complete after stack")
+            await self.handle_round_completion(event_data)
         else:
-            # Step 6: CRITICAL - Trigger next turn (if round not complete)
-            if not event_data.get('round_complete'):
-                print("Checking next turn after stack...")
-                await self.check_and_trigger_next_turn()
+            # Step 6: CRITICAL - Trigger next turn (mid-round only)
+            print("Checking next turn after stack...")
+            await self.check_and_trigger_next_turn()
         
         print("=== END HANDLE STACK ===\n")
                 
@@ -460,7 +460,12 @@ class GameConsumer(AsyncWebsocketConsumer):
             current_player_id = game_state.get('current_player_id')
             
             if not current_player_id:
-                print("No current player determined")
+                print("No current player determined - game may be finished")
+                return
+            
+            # Guard: if game is finished, don't try to determine next player
+            if game_state.get('status') == 'finished':
+                print("Game is finished - not triggering any turn")
                 return
             
             print(f"Next player should be: {current_player_id}")
@@ -593,17 +598,17 @@ class GameConsumer(AsyncWebsocketConsumer):
                 }
             )
             
-            # Handle round completion if needed
-            if event_data.get('round_complete'):
-                await self.handle_round_completion(event_data)
-            
-            # Handle set end if needed
+            # Handle set end first (takes priority)
             if event_data.get('set_end_results'):
                 await self.handle_set_end(event_data['set_end_results'])
+                return  # Game may have ended - do not trigger next turn
+            
+            # Handle round completion if needed (only if set did NOT end)
+            if event_data.get('round_complete'):
+                await self.handle_round_completion(event_data)
             else:
-                # Trigger next turn
-                if not event_data.get('round_complete'):
-                    await self.check_and_trigger_next_turn()
+                # Trigger next turn mid-round
+                await self.check_and_trigger_next_turn()
             
             print("=== END AUTO-PLAY ===\n")
             
@@ -906,8 +911,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                 print("🔄 Set transition detected - restarting stack gauge")
                 await self.start_stack_gauge(reset_first=True)
             
-            # Check next turn for the new round
-            await self.check_and_trigger_next_turn()
+            # Check next turn for the new round — only if game is still active
+            game_check = await self.get_game_state()
+            if game_check.get('status') != 'finished':
+                await self.check_and_trigger_next_turn()
+            else:
+                print("Game is finished - skipping next turn trigger")
             
             print("=== END ROUND COMPLETION ===\n")
         except Exception as e:
@@ -958,6 +967,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             # Check if game ended
             if set_end_results.get('game_ended'):
                 game_winner_uuid = set_end_results.get('game_winner_id')
+                winner_name = await self.get_player_display_name(game_winner_uuid)
                 
                 await self.channel_layer.group_send(
                     self.game_group_name,
@@ -965,7 +975,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                         'type': 'broadcast_event',
                         'event': EventBuilder.game_ended(
                             game_winner_uuid,
-                            scores
+                            scores,
+                            winner_name
                         )
                     }
                 )
@@ -1090,6 +1101,15 @@ class GameConsumer(AsyncWebsocketConsumer):
             }
         except Game.DoesNotExist:
             return {}
+
+    @database_sync_to_async
+    def get_player_display_name(self, player_id: str) -> str:
+        """Get display name for a player by UUID string."""
+        try:
+            player = GamePlayer.objects.get(id=player_id)
+            return player.display_name
+        except GamePlayer.DoesNotExist:
+            return 'Unknown'
 
     async def trigger_next_bot_turn(self):
         """Check if next player is a bot and trigger their turn."""

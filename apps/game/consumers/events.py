@@ -96,11 +96,12 @@ class EventBuilder:
         return EventBuilder.build_event(GameEvent.GAME_STATE, state)
     
     @staticmethod
-    def game_ended(winner_id: str, final_scores: Dict[str, int]) -> Dict:
+    def game_ended(winner_id: str, final_scores: Dict[str, int], winner_name: str = '') -> Dict:
         """Game has ended."""
         return EventBuilder.build_event(GameEvent.GAME_ENDED, {
             "winner_id": winner_id,
-            "final_scores": final_scores
+            "final_scores": final_scores,
+            "winner_name": winner_name
         })
     
     @staticmethod

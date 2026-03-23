@@ -605,3 +605,104 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
     z-index: 10;
 }
+
+/* ========== GAME OVER OVERLAY ========== */
+#game-over-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.game-over-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+}
+
+.game-over-modal {
+    position: relative;
+    background: var(--bg-secondary);
+    border: 2px solid var(--accent-gold);
+    border-radius: var(--radius-lg);
+    padding: 3rem 2.5rem;
+    text-align: center;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: var(--glow-gold), var(--shadow-xl);
+    animation: gameOverPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes gameOverPop {
+    from { transform: scale(0.7); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+.game-over-icon {
+    font-size: 5rem;
+    line-height: 1;
+    margin-bottom: 1rem;
+}
+
+.game-over-title {
+    font-size: 2.5rem;
+    font-weight: var(--font-bold);
+    color: var(--accent-gold);
+    margin-bottom: 0.5rem;
+}
+
+.game-over-subtitle {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.game-over-scores {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.game-over-scores h3 {
+    color: var(--accent-gold);
+    font-size: var(--text-base);
+    text-align: center;
+    margin-bottom: 0.75rem;
+}
+
+.game-over-score-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 0.4rem;
+}
+
+.game-over-score-row.winner-row {
+    background: rgba(255, 215, 0, 0.15);
+    border: 1px solid var(--accent-gold);
+}
+
+.game-over-player-name {
+    color: var(--text-primary);
+    font-weight: var(--font-medium);
+}
+
+.game-over-player-score {
+    color: var(--accent-gold);
+    font-weight: var(--font-bold);
+    font-family: var(--font-mono);
+}
+
+.game-over-redirect {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    margin-bottom: 1.5rem;
+}
