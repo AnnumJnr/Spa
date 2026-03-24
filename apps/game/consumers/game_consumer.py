@@ -457,6 +457,11 @@ class GameConsumer(AsyncWebsocketConsumer):
             
             # Get fresh game state
             game_state = await self.get_game_state()
+
+            if game_state.get('status') == 'finished':
+                print("Game is finished - not triggering any turn")
+                return
+
             current_player_id = game_state.get('current_player_id')
             
             if not current_player_id:
@@ -951,6 +956,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             # Convert integer ID to UUID using IDMapper
             winner_int = set_end_results.get('winner_id')
             winner_uuid = self.id_mapper.get_uuid(winner_int) if winner_int else None
+            winner_name = set_end_results.get('winner_name', '')
             
             await self.channel_layer.group_send(
                 self.game_group_name,
@@ -963,12 +969,13 @@ class GameConsumer(AsyncWebsocketConsumer):
                     )
                 }
             )
+            print(f"✓ Set ended event broadcast")
             
-            # Check if game ended
+            # CRITICAL: Check if game ended
             if set_end_results.get('game_ended'):
                 game_winner_uuid = set_end_results.get('game_winner_id')
-                winner_name = await self.get_player_display_name(game_winner_uuid)
                 
+                # Broadcast game ended event immediately
                 await self.channel_layer.group_send(
                     self.game_group_name,
                     {
@@ -980,14 +987,21 @@ class GameConsumer(AsyncWebsocketConsumer):
                         )
                     }
                 )
-            else:
-                # Game continues - new set has been created by services.py
-                # Give the DB a moment to settle then broadcast fresh state and trigger first turn
-                await asyncio.sleep(1.0)
-                await self.broadcast_game_state_to_all()
-                await asyncio.sleep(0.3)
-                await self.check_and_trigger_next_turn()
+                print(f"🏆 Game ended event broadcast - winner: {game_winner_uuid}")
                 
+                # DO NOT continue - game is over
+                print("Game finished - no further actions")
+                return
+            
+            # Game continues - wait for database to settle
+            print("Game continues - waiting 1 second for database to settle...")
+            await asyncio.sleep(1.0)
+            
+            # Broadcast fresh state and trigger first turn of new set
+            await self.broadcast_game_state_to_all()
+            await asyncio.sleep(0.5)
+            await self.check_and_trigger_next_turn()
+                    
         except Exception as e:
             print(f"Error in handle_set_end: {e}")
             import traceback

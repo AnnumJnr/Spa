@@ -206,22 +206,32 @@ class GameService:
                 # CRITICAL FIX: Determine turn order starting from lead player
                 # Turn order must be: lead player first, then clockwise
                 lead_int_id = current_round.lead_player_id
+                print(f"🔍 DEBUG - lead_int_id: {lead_int_id}")
+                print(f"🔍 DEBUG - set_state.active_players: {set_state.active_players}")
                 
                 # Build turn order starting from lead (clockwise)
                 turn_order = []
-                lead_index = set_state.active_players.index(lead_int_id)
+                try:
+                    lead_index = set_state.active_players.index(lead_int_id)
+                    print(f"✅ DEBUG - lead_index found: {lead_index}")
+                except ValueError as e:
+                    print(f"❌ DEBUG - lead_int_id {lead_int_id} NOT in active_players {set_state.active_players}")
+                    print(f"❌ DEBUG - This is why current_player_id is not being set!")
+                    # FALLBACK: Use first active player
+                    lead_index = 0
+                    lead_int_id = set_state.active_players[0] if set_state.active_players else 0
                 
-                # Start from lead and go clockwise through active players
                 for i in range(len(set_state.active_players)):
                     player_index = (lead_index + i) % len(set_state.active_players)
                     turn_order.append(set_state.active_players[player_index])
                 
-                # Find next player to play (first in turn order who hasn't played)
+                # Find next player to play
                 for int_id in turn_order:
                     if int_id not in played_int_ids:
                         current_player_uuid = id_mapper.get_uuid(int_id)
                         if current_player_uuid:
                             state_dict['current_player_id'] = current_player_uuid
+                            print(f"✅ DEBUG - current_player_id set to: {current_player_uuid}")
                         break
             
             # Add played cards (convert int IDs to UUID strings)
