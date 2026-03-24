@@ -492,104 +492,36 @@ class GameEventHandler {
      */
     onGameEnded(data) {
         console.log('Game ended:', data);
-
+        
         const { winner_id, final_scores, winner_name } = data;
-
-        // Update final scores on the board
+        
+        // Update final scores
         if (final_scores) {
             this.board.updateScores(final_scores);
         }
-
-        // Disable the hand immediately
+        
+        // Disable hand
         this.hand.setMyTurn(false);
-
-        // Resolve winner display name (use server-provided name, fallback to players list)
+        
+        // Resolve winner name
         let displayName = winner_name || '';
         if (!displayName) {
-            const winnerPlayer = this.board.players.find(
-                p => String(p.id) === String(winner_id)
-            );
-            displayName = winnerPlayer
-                ? (winnerPlayer.display_name || winnerPlayer.name)
-                : 'Unknown';
+            const winner = this.board.players.find(p => String(p.id) === String(winner_id));
+            displayName = winner ? (winner.display_name || winner.name) : 'Unknown';
         }
-
-        const iWon = String(winner_id) === String(this.playerId);
-
-        // Show full-screen game-over overlay
-        this.showGameOverOverlay(iWon, displayName, winner_id, final_scores);
-
-        // Redirect to game modes after 8 seconds
-        setTimeout(() => {
-            window.location.href = '/modes/';
-        }, 8000);
-    }
-
-    showGameOverOverlay(iWon, winnerName, winnerId, finalScores) {
-        // Remove any existing overlay
-        const existing = document.getElementById('game-over-overlay');
-        if (existing) existing.remove();
-
-        // Build scores list HTML
-        let scoresHTML = '';
-        if (finalScores && this.board.players.length) {
-            scoresHTML = this.board.players.map(p => {
-                const score = (finalScores[p.id] !== undefined)
-                    ? finalScores[p.id]
-                    : (p.score || 0);
-                const isWinner = String(p.id) === String(winnerId);
-                return `
-                    <div class="game-over-score-row ${isWinner ? 'winner-row' : ''}">
-                        <span class="game-over-player-name">
-                            ${isWinner ? '🏆 ' : ''}${p.display_name || p.name}
-                        </span>
-                        <span class="game-over-player-score">${score}</span>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        const overlay = document.createElement('div');
-        overlay.id = 'game-over-overlay';
-        overlay.innerHTML = `
-            <div class="game-over-backdrop"></div>
-            <div class="game-over-modal">
-                <div class="game-over-icon">${iWon ? '🏆' : '😔'}</div>
-                <h1 class="game-over-title">${iWon ? 'You Won!' : 'Game Over'}</h1>
-                <p class="game-over-subtitle">
-                    ${iWon
-                        ? 'Congratulations! You reached the target score!'
-                        : `${winnerName} wins this game!`
-                    }
-                </p>
-                ${scoresHTML ? `
-                    <div class="game-over-scores">
-                        <h3>Final Scores</h3>
-                        ${scoresHTML}
-                    </div>
-                ` : ''}
-                <p class="game-over-redirect">
-                    Returning to game modes in <span id="game-over-countdown">8</span>s...
-                </p>
-                <button class="btn btn-primary" onclick="window.location.href='/modes/'">
-                    Back to Modes
-                </button>
-            </div>
+        
+        // Show winner announcement on the board
+        const gameContainer = document.querySelector('.game-container') || document.querySelector('.table-center') || document.body;
+        
+        const announcement = document.createElement('div');
+        announcement.id = 'game-winner-announcement';
+        announcement.innerHTML = `
+            <div class="winner-text">${displayName} wins!</div>
+            <button class="btn btn-primary winner-btn" onclick="window.location.href='/modes/'">
+                Back to Game Modes
+            </button>
         `;
-
-        document.body.appendChild(overlay);
-
-        // Animate in
-        requestAnimationFrame(() => { overlay.style.opacity = '1'; });
-
-        // Countdown ticker
-        let secs = 8;
-        const ticker = setInterval(() => {
-            secs--;
-            const el = document.getElementById('game-over-countdown');
-            if (el) el.textContent = secs;
-            if (secs <= 0) clearInterval(ticker);
-        }, 1000);
+        gameContainer.appendChild(announcement);
     }
 
     /**

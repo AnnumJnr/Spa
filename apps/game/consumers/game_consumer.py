@@ -980,11 +980,19 @@ class GameConsumer(AsyncWebsocketConsumer):
                         )
                     }
                 )
+            else:
+                # Game continues - new set has been created by services.py
+                # Give the DB a moment to settle then broadcast fresh state and trigger first turn
+                await asyncio.sleep(1.0)
+                await self.broadcast_game_state_to_all()
+                await asyncio.sleep(0.3)
+                await self.check_and_trigger_next_turn()
+                
         except Exception as e:
             print(f"Error in handle_set_end: {e}")
             import traceback
             traceback.print_exc()
-    
+
     async def broadcast_event(self, event):
         """Broadcast event to WebSocket."""
         try:
