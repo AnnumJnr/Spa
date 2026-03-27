@@ -157,6 +157,7 @@ def start_room_view(request, room_id):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny]) 
 def room_detail_view(request, room_code):
     """Get room details by room code."""
     try:
