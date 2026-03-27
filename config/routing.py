@@ -14,5 +14,7 @@ websocket_urlpatterns = [
     
     # Game WebSocket
     path('ws/game/<uuid:game_id>/', GameConsumer.as_asgi()),
+
+    path('ws/lobby/room/<str:room_code>/', LobbyConsumer.as_asgi()),
 ]
 

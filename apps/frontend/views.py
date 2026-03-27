@@ -111,3 +111,32 @@ def game_table_view(request, game_id):
 def stats_dashboard_view(request):
     """Player statistics."""
     return render(request, 'stats/dashboard.html')
+
+
+def room_lobby_view(request, room_code):
+    """Private room waiting lobby."""
+    from apps.lobby.models import GameRoom
+    from apps.game.utils import get_or_create_guest_identity
+
+    try:
+        room = GameRoom.objects.get(room_code=room_code.upper())
+    except GameRoom.DoesNotExist:
+        return redirect('frontend:game_modes')
+
+    if room.status == GameRoom.STATUS_IN_PROGRESS and room.game:
+        return redirect('frontend:game_table', game_id=room.game.id)
+
+    if room.status == GameRoom.STATUS_FINISHED:
+        return redirect('frontend:game_modes')
+
+    is_guest, user, guest_name = get_or_create_guest_identity(request)
+
+    context = {
+        'room_code': room.room_code,
+        'room_id': str(room.id),
+        'target_score': room.target_score,
+        'max_players': room.max_players,
+        'is_guest': is_guest,
+        'guest_name': guest_name or '',
+    }
+    return render(request, 'lobby/room_lobby.html', context)

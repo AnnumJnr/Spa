@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Join Room - Spa{% endblock %}
+
+{% block content %}
+<div class="join-room-container">
+    <h1>Join Room</h1>
+
+    <div class="join-room-form">
+        <div id="room-info" style="margin-bottom:1.5rem;display:none;">
+            <div class="lobby-content" style="padding:1rem;">
+                <p style="margin:0;color:var(--text-secondary);">
+                    Room <strong id="room-code-display" style="color:var(--accent-gold);font-family:var(--font-mono);letter-spacing:0.1em;"></strong>
+                    &nbsp;·&nbsp; Target: <span id="room-target"></span> pts
+                    &nbsp;·&nbsp; <span id="room-players"></span>
+                </p>
+            </div>
+        </div>
+
+        <div id="room-not-found" style="display:none;">
+            <p class="form-error">Room not found or no longer available.</p>
+            <a href="{% url 'frontend:game_modes' %}" class="btn btn-secondary btn-block">Back to Modes</a>
+        </div>
+
+        <div id="join-form">
+            {% if not user.is_authenticated %}
+            <div class="form-group">
+                <label for="guest-name" class="form-label">Your Name</label>
+                <input type="text" id="guest-name" class="form-input"
+                    placeholder="Enter your name" maxlength="30">
+                <div class="form-help">Choose a name other players will see</div>
+            </div>
+            {% else %}
+            <p style="color:var(--text-secondary);margin-bottom:1.5rem;">
+                Joining as <strong style="color:var(--text-primary);">{{ user.display_name|default:user.username }}</strong>
+            </p>
+            {% endif %}
+
+            <div id="join-error" class="form-error" style="display:none;"></div>
+
+            <button id="join-btn" class="btn btn-primary btn-block btn-lg">
+                Join Game
+            </button>
+            <a href="{% url 'frontend:game_modes' %}" class="btn btn-secondary btn-block" style="margin-top:0.75rem;">
+                Back
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ROOM_CODE = "{{ room_code }}".toUpperCase();
+
+async function loadRoomInfo() {
+    try {
+        const res = await fetch(`/api/lobby/rooms/${ROOM_CODE}/`);
+        if (!res.ok) {
+            document.getElementById('room-not-found').style.display = 'block';
+            document.getElementById('join-form').style.display = 'none';
+            return;
+        }
+        const data = await res.json();
+        document.getElementById('room-code-display').textContent = data.room_code;
+        document.getElementById('room-target').textContent = data.target_score;
+        document.getElementById('room-players').textContent =
+            `${data.current_player_count} / ${data.max_players} players`;
+        document.getElementById('room-info').style.display = 'block';
+    } catch (e) {
+        console.error('Failed to load room info:', e);
+    }
+}
+
+document.getElementById('join-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('join-btn');
+    const errorDiv = document.getElementById('join-error');
+    const guestInput = document.getElementById('guest-name');
+    const guestName = guestInput ? guestInput.value.trim() : '';
+
+    if (guestInput && !guestName) {
+        errorDiv.textContent = 'Please enter your name.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Joining...';
+    errorDiv.style.display = 'none';
+
+    try {
+        const body = { room_code: ROOM_CODE };
+        if (guestName) body.guest_name = guestName;
+
+        const res = await fetch('/api/lobby/rooms/join/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify(body),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            sessionStorage.setItem('room_player_id', data.player_id);
+            if (guestName) sessionStorage.setItem('guest_name', guestName);
+            window.location.href = `/room/${ROOM_CODE}/`;
+        } else {
+            errorDiv.textContent = data.error || 'Failed to join.';
+            errorDiv.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Join Game';
+        }
+    } catch (e) {
+        errorDiv.textContent = 'Network error.';
+        errorDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Join Game';
+    }
+});
+
+function getCookie(name) {
+    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    return v ? v[2] : null;
+}
+
+loadRoomInfo();
+</script>
+{% endblock %}

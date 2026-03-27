@@ -525,7 +525,7 @@ class SetService:
         if set_state.stack_state:
             stack = set_state.stack_state
             
-            # FIX: Use stacked_cards instead of committed_cards
+            
             # Create a dictionary with the stack owner's cards for backward compatibility
             stacked_cards_dict = {
                 str(stack.owner_player_id): [card.to_dict() for card in stack.stacked_cards]
@@ -687,6 +687,15 @@ class SetService:
                 print(f"ERROR setting new lead: {e}, using winner as lead")
                 game.current_lead = winner
                 game.save()
+
+            # Mark linked room as finished if one exists
+            try:
+                if hasattr(game, 'room') and game.room:
+                    game.room.status = 'finished'
+                    game.room.finished_at = timezone.now()
+                    game.room.save(update_fields=['status', 'finished_at'])
+            except Exception:
+                pass
             
             # Create next set
             print(f"Creating next set: {set_obj.set_number + 1}")

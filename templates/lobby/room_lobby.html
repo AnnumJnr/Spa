@@ -1,0 +1,251 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Room {{ room_code }} - Spa{% endblock %}
+
+{% block content %}
+<div class="lobby-container">
+    <div class="lobby-header">
+        <h1>Private Room</h1>
+        <div class="room-code">{{ room_code }}</div>
+    </div>
+
+    <div class="lobby-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+            <span style="color:var(--text-secondary);font-size:var(--text-sm);">
+                Target: <strong style="color:var(--text-primary);">{{ target_score }} pts</strong>
+                &nbsp;·&nbsp; Max: <strong style="color:var(--text-primary);">{{ max_players }} players</strong>
+            </span>
+            <span id="player-count-badge" style="color:var(--accent-gold);font-weight:var(--font-semibold);"></span>
+        </div>
+
+        <!-- Invite link -->
+        <div class="share-link-container" style="margin-bottom:1.5rem;">
+            <span class="share-link-label">Invite link — share this with friends</span>
+            <div class="share-link-display">
+                <input type="text" id="invite-link" class="share-link-input" readonly>
+                <button class="btn btn-outline btn-sm copy-btn" onclick="copyInviteLink()">Copy</button>
+            </div>
+        </div>
+
+        <!-- Player list -->
+        <ul id="player-list" class="player-list"></ul>
+
+        <!-- Bot controls -->
+        <div id="bot-controls" style="margin-top:1rem;padding:1rem;background:var(--bg-tertiary);border-radius:var(--radius-md);">
+            <p style="color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:0.75rem;">
+                Fill empty seats with bots
+            </p>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+                <button class="btn btn-secondary btn-sm" onclick="addBot()">+ Add Bot</button>
+                <button class="btn btn-secondary btn-sm" onclick="removeBot()">− Remove Bot</button>
+                <span id="bot-count-label" style="color:var(--text-muted);font-size:var(--text-sm);"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification bar -->
+    <div id="lobby-notification" style="display:none;padding:0.75rem 1rem;border-radius:var(--radius-md);margin-bottom:1rem;text-align:center;font-weight:var(--font-medium);"></div>
+
+    <div class="lobby-actions">
+        <button id="start-btn" class="btn btn-primary btn-lg" disabled onclick="startGame()">
+            Start Game
+        </button>
+        <button class="btn btn-secondary" onclick="leaveRoom()">Leave</button>
+    </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display:none;">
+    <div class="spinner"><div class="spinner-inner"></div></div>
+    <p style="color:var(--text-primary);margin-top:1rem;">Starting game...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ROOM_CODE = "{{ room_code }}";
+const ROOM_ID   = "{{ room_id }}";
+const IS_GUEST  = {{ is_guest|yesno:"true,false" }};
+const GUEST_NAME = "{{ guest_name }}";
+const MAX_PLAYERS = {{ max_players }};
+
+// Build WebSocket URL
+let wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/lobby/room/${ROOM_CODE}/`;
+const storedGuestName = GUEST_NAME || sessionStorage.getItem('guest_name') || '';
+if (storedGuestName) wsUrl += `?guest_name=${encodeURIComponent(storedGuestName)}`;
+
+// Set invite link
+document.getElementById('invite-link').value = `${location.origin}/join/${ROOM_CODE}/`;
+
+let socket = null;
+let roomState = null;
+
+function connect() {
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => console.log('Lobby WS connected');
+
+    socket.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        handleMessage(msg);
+    };
+
+    socket.onclose = (e) => {
+        if (e.code !== 1000) {
+            showNotification('Connection lost. Reconnecting...', 'warning');
+            setTimeout(connect, 2000);
+        }
+    };
+
+    socket.onerror = (e) => console.error('Lobby WS error:', e);
+}
+
+function handleMessage(msg) {
+    switch (msg.type) {
+        case 'room_state':
+            updateRoom(msg.data);
+            break;
+        case 'player_joined':
+            showNotification(`${msg.display_name} joined the room`, 'success');
+            updateRoom(msg.room_state);
+            break;
+        case 'player_left':
+            showNotification(`${msg.display_name} left the room`, 'warning');
+            updateRoom(msg.room_state);
+            break;
+        case 'room_updated':
+            updateRoom(msg.room_state);
+            break;
+        case 'game_starting':
+            onGameStarting(msg.game_id);
+            break;
+        case 'error':
+            showNotification(msg.message, 'error');
+            break;
+    }
+}
+
+function updateRoom(state) {
+    if (!state) return;
+    roomState = state;
+
+    const list = document.getElementById('player-list');
+    list.innerHTML = '';
+
+    let botCount = 0;
+    state.players.forEach(p => {
+        if (p.is_bot) { botCount++; return; }
+        const li = document.createElement('li');
+        li.className = 'player-item';
+        li.innerHTML = `
+            <div class="player-status"></div>
+            <span style="flex:1;font-weight:var(--font-medium);">
+                ${escHtml(p.display_name)}
+                ${p.is_host ? '<span class="badge badge-gold" style="margin-left:0.5rem;font-size:0.6rem;">HOST</span>' : ''}
+                ${p.is_guest ? '<span class="badge" style="margin-left:0.5rem;font-size:0.6rem;">GUEST</span>' : ''}
+            </span>
+        `;
+        list.appendChild(li);
+    });
+
+    // Show bots as a single summary entry
+    if (botCount > 0) {
+        const li = document.createElement('li');
+        li.className = 'player-item';
+        li.style.opacity = '0.7';
+        li.innerHTML = `
+            <div class="player-status" style="background:var(--text-muted);"></div>
+            <span style="flex:1;">🤖 ${botCount} Bot${botCount > 1 ? 's' : ''}</span>
+        `;
+        list.appendChild(li);
+    }
+
+    // Empty seat placeholders
+    const humanAndBotCount = state.current_count;
+    for (let i = humanAndBotCount; i < MAX_PLAYERS; i++) {
+        const li = document.createElement('li');
+        li.className = 'player-item';
+        li.style.opacity = '0.35';
+        li.innerHTML = `
+            <div class="player-status waiting"></div>
+            <span style="flex:1;font-style:italic;">Waiting for player...</span>
+        `;
+        list.appendChild(li);
+    }
+
+    document.getElementById('player-count-badge').textContent =
+        `${state.current_count} / ${MAX_PLAYERS}`;
+    document.getElementById('bot-count-label').textContent =
+        botCount > 0 ? `${botCount} bot${botCount > 1 ? 's' : ''} added` : '';
+
+    const startBtn = document.getElementById('start-btn');
+    startBtn.disabled = !state.can_start;
+}
+
+function addBot() {
+    send({ action: 'add_bot', difficulty: 'intermediate' });
+}
+
+function removeBot() {
+    send({ action: 'remove_bot' });
+}
+
+function startGame() {
+    const btn = document.getElementById('start-btn');
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+    send({ action: 'start_game' });
+}
+
+function leaveRoom() {
+    send({ action: 'leave' });
+    window.location.href = "{% url 'frontend:game_modes' %}";
+}
+
+function onGameStarting(gameId) {
+    document.getElementById('loading-overlay').style.display = 'flex';
+    setTimeout(() => {
+        window.location.href = `/game/${gameId}/`;
+    }, 1000);
+}
+
+function copyInviteLink() {
+    const input = document.getElementById('invite-link');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        showNotification('Invite link copied!', 'success');
+    }).catch(() => {
+        document.execCommand('copy');
+        showNotification('Invite link copied!', 'success');
+    });
+}
+
+function showNotification(msg, type = 'info') {
+    const el = document.getElementById('lobby-notification');
+    const colors = {
+        success: 'var(--accent-green)',
+        warning: 'var(--accent-gold)',
+        error: 'var(--accent-red)',
+        info: '#2196f3',
+    };
+    el.style.display = 'block';
+    el.style.background = 'var(--bg-tertiary)';
+    el.style.borderLeft = `4px solid ${colors[type] || colors.info}`;
+    el.style.color = colors[type] || colors.info;
+    el.textContent = msg;
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function send(data) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(data));
+    }
+}
+
+function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+connect();
+</script>
+{% endblock %}

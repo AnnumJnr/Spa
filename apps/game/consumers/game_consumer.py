@@ -1029,7 +1029,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 if round_num:
                     self.current_round_number = round_num
                 
-                await self.check_pending_round_completion()
+               # await self.check_pending_round_completion()
                 await self.check_and_trigger_next_turn()
                 
             elif event_type == GameEvent.YOUR_TURN:

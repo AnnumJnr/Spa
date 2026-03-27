@@ -29,4 +29,6 @@ urlpatterns = [
     
     # Stats
     path('stats/', views.stats_dashboard_view, name='stats'),
+
+    path('room/<str:room_code>/', views.room_lobby_view, name='room_lobby'),
 ]

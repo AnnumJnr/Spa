@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Create Private Room - Spa{% endblock %}
+
+{% block content %}
+<div class="create-room-container">
+    <h1>Create Private Room</h1>
+
+    <div class="create-room-form">
+        <div class="form-group">
+            <label class="form-label">Max Players</label>
+            <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+                {% for n in "234" %}
+                <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                    <input type="radio" name="max_players" value="{{ n }}"
+                        {% if n == "4" %}checked{% endif %}
+                        style="accent-color:var(--accent-gold);">
+                    <span>{{ n }} Players</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="target-score" class="form-label">Target Score</label>
+            <select id="target-score" class="form-select">
+                <option value="12" selected>12 Points (Quick)</option>
+                <option value="18">18 Points (Medium)</option>
+                <option value="24">24 Points (Long)</option>
+            </select>
+        </div>
+
+        <div id="error-message" class="form-error" style="display:none;"></div>
+
+        <button id="create-btn" class="btn btn-primary btn-block btn-lg">
+            Create Room
+        </button>
+        <a href="{% url 'frontend:game_modes' %}" class="btn btn-secondary btn-block" style="margin-top:0.75rem;">
+            Back
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('create-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('create-btn');
+    const errorDiv = document.getElementById('error-message');
+    const maxPlayers = document.querySelector('input[name="max_players"]:checked').value;
+    const targetScore = document.getElementById('target-score').value;
+
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+    errorDiv.style.display = 'none';
+
+    try {
+        const res = await fetch('/api/lobby/rooms/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                mode: 'private',
+                max_players: parseInt(maxPlayers),
+                target_score: parseInt(targetScore),
+            }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // Store player identity for the lobby page
+            sessionStorage.setItem('room_player_id', data.player_id);
+            window.location.href = `/room/${data.room_code}/`;
+        } else {
+            errorDiv.textContent = data.error || 'Failed to create room.';
+            errorDiv.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = 'Create Room';
+        }
+    } catch (e) {
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create Room';
+    }
+});
+
+function getCookie(name) {
+    const v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+    return v ? v[2] : null;
+}
+</script>
+{% endblock %}

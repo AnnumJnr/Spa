@@ -13,119 +13,99 @@ from .serializers import GameRoomSerializer, RoomPlayerSerializer
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # ← Changed from IsAuthenticated to AllowAny
+@permission_classes([AllowAny])
 def create_room_view(request):
-    """Create a new game room - accessible to guests and authenticated users."""
+    """Create a private room - guests and authenticated users."""
     mode = request.data.get('mode', 'private')
     target_score = request.data.get('target_score', 12)
     max_players = request.data.get('max_players', 4)
-    bots = request.data.get('bots', [])  # For practice mode
-    
-    # Get or create guest identity
+    bots = request.data.get('bots', [])
+
     is_guest, user, guest_name = get_or_create_guest_identity(request)
-    
+
     try:
-        # For practice mode with bots
-# For practice mode with bots
         if mode == 'practice':
-            from apps.game.models import Game, GamePlayer
-            from apps.game.services import GameService
-            
-            # Prepare player data
-            players = []
-            
-            # Add human player (guest or authenticated)
-            players.append({
+            from apps.game.models import Game
+            from apps.game.services import GameService as GS
+
+            players = [{
                 'user': user if not is_guest else None,
                 'is_guest': is_guest,
                 'guest_name': guest_name if is_guest else None,
-                'is_bot': False
-            })
-            
-            # Add bots
-            for bot_config in bots[:3]:  # Max 3 bots
+                'is_bot': False,
+            }]
+            for bot_config in bots[:3]:
                 players.append({
                     'user': None,
                     'is_bot': True,
-                    'bot_difficulty': bot_config.get('difficulty', 'intermediate')
+                    'bot_difficulty': bot_config.get('difficulty', 'intermediate'),
                 })
-            
-            # Create game using GameService
-            game = GameService.create_game(
-                players=players,
-                target_score=target_score,
-                is_practice=True
-            )
-            
-            # Update player guest info for the human player
-            if is_guest:
-                human_player = game.players.first()
-                human_player.is_guest = True
-                human_player.guest_name = guest_name
-                human_player.save()
-            
-            # Start the game (this deals cards and initializes first set!)
-            GameService.start_game(game)
-            
-            return Response({
-                'success': True,
-                'game_id': str(game.id)
-            }, status=status.HTTP_201_CREATED)        
-        # For non-practice modes (multiplayer rooms)
-        # Only authenticated users can create multiplayer rooms
-        if is_guest:
-            return Response(
-                {'error': 'Guests can only play practice mode. Please create an account for multiplayer.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        room = RoomService.create_room(
-            host=user,
+
+            game = GS.create_game(players=players, target_score=target_score, is_practice=True)
+            GS.start_game(game)
+
+            return Response({'success': True, 'game_id': str(game.id)}, status=status.HTTP_201_CREATED)
+
+        # Private room — guests allowed
+        room, room_player = RoomService.create_room(
             mode=mode,
-            target_score=target_score,
-            max_players=max_players
+            target_score=int(target_score),
+            max_players=int(max_players),
+            host_user=user if not is_guest else None,
+            host_guest_name=guest_name if is_guest else None,
         )
-        
-        return Response(
-            GameRoomSerializer(room).data,
-            status=status.HTTP_201_CREATED
-        )
-    
+
+        return Response({
+            'room_code': room.room_code,
+            'room_id': str(room.id),
+            'player_id': str(room_player.id),
+        }, status=status.HTTP_201_CREATED)
+
     except ValueError as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         import traceback
-        print(f"Error creating game: {traceback.format_exc()}")  # Debug logging
-        return Response(
-            {'error': f'Failed to create game: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        print(traceback.format_exc())
+        return Response({'error': f'Failed: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def join_room_view(request, room_id):
-    """Join an existing room."""
-    try:
-        room = GameRoom.objects.get(id=room_id)
-        room_player = RoomService.join_room(room, request.user)
-        
-        return Response(RoomPlayerSerializer(room_player).data)
-    
-    except GameRoom.DoesNotExist:
-        return Response(
-            {'error': 'Room not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-    except ValueError as e:
-        return Response(
-            {'error': str(e)},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+@permission_classes([AllowAny])
+def join_room_view(request, room_code=None, room_id=None):
+    """Join a room by room_code. Guests provide guest_name."""
+    is_guest, user, guest_name = get_or_create_guest_identity(request)
 
+    # Accept room_code from URL param or body
+    code = room_code or request.data.get('room_code', '').strip().upper()
+    incoming_guest_name = request.data.get('guest_name', '').strip()
+
+    if is_guest:
+        if not incoming_guest_name:
+            return Response({'error': 'Guest name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        guest_name = incoming_guest_name
+
+    try:
+        room = GameRoom.objects.get(room_code=code)
+    except GameRoom.DoesNotExist:
+        return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if room.status != GameRoom.STATUS_WAITING:
+        return Response({'error': 'Room is no longer accepting players'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        room_player = RoomService.join_room(
+            room,
+            user=user if not is_guest else None,
+            guest_name=guest_name if is_guest else None,
+        )
+        return Response({
+            'room_code': room.room_code,
+            'room_id': str(room.id),
+            'player_id': str(room_player.id),
+            'display_name': room_player.display_name,
+        })
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
