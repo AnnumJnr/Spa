@@ -41,14 +41,17 @@ class LobbyConsumer(AsyncWebsocketConsumer):
                     params[k] = v
         guest_name = params.get('guest_name', '').strip()
 
-        # Resolve identity
+        #  Allow guests to connect - don't reject unauthenticated users
+        # Instead, try to find the RoomPlayer by guest_name
         try:
             result = await self.get_room_player(user, guest_name)
         except Exception as e:
+            print(f"Error getting room player: {e}")
             await self.close(code=4003)
             return
 
         if not result:
+            print(f"Room player not found for user={user} guest_name={guest_name}")
             await self.close(code=4003)
             return
 
@@ -191,17 +194,25 @@ class LobbyConsumer(AsyncWebsocketConsumer):
         except GameRoom.DoesNotExist:
             return None
 
+        # Try authenticated user first
         if user and user.is_authenticated:
             rp = RoomPlayer.objects.filter(
                 room=room, user=user, status=RoomPlayer.STATUS_ACTIVE
             ).first()
-            return (room, rp) if rp else None
-        elif guest_name:
+            if rp:
+                return (room, rp)
+            # If authenticated user not found, don't try guest
+            return None
+
+        # For guests, find by guest_name
+        if guest_name:
             rp = RoomPlayer.objects.filter(
                 room=room, guest_name__iexact=guest_name,
                 status=RoomPlayer.STATUS_ACTIVE
             ).first()
-            return (room, rp) if rp else None
+            if rp:
+                return (room, rp)
+
         return None
 
     @database_sync_to_async
