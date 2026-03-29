@@ -128,8 +128,11 @@ def room_lobby_view(request, room_code):
 
     if room.status == GameRoom.STATUS_FINISHED:
         return redirect('frontend:game_modes')
+    
+    
 
-    is_guest, user, guest_name = get_or_create_guest_identity(request)
+    is_guest = not request.user.is_authenticated
+    guest_name = request.session.get('lobby_guest_name', '') if is_guest else ''
 
     context = {
         'room_code': room.room_code,

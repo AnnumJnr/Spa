@@ -84,6 +84,10 @@ def join_room_view(request, room_code=None, room_id=None):
             return Response({'error': 'Guest name is required'}, status=status.HTTP_400_BAD_REQUEST)
         guest_name = incoming_guest_name
 
+    if is_guest and guest_name:
+        request.session['lobby_guest_name'] = guest_name
+        request.session.modified = True
+
     try:
         room = GameRoom.objects.get(room_code=code)
     except GameRoom.DoesNotExist:
