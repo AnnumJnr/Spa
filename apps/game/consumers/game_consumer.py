@@ -1080,7 +1080,13 @@ class GameConsumer(AsyncWebsocketConsumer):
         """Get current game state."""
         try:
             game = Game.objects.get(id=self.game_id)
-            return GameService.get_game_state(game, for_player_id=self.player_id)
+            state = GameService.get_game_state(game, for_player_id=self.player_id)
+            # Debug: log hand for this player
+            if state.get('hand'):
+                print(f"✅ Player {self.player_id} has {len(state['hand'])} cards in hand")
+            else:
+                print(f"⚠️ Player {self.player_id} has no hand in state")
+            return state
         except Game.DoesNotExist:
             return {}
     

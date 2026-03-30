@@ -167,11 +167,22 @@ class GameEventHandler {
      */
     onGameState(data) {
         console.log('=== GAME STATE RECEIVED ===');
+        console.log('Player ID:', this.playerId);
+        console.log('Hand in state:', data.hand);
+        console.log('Hand in state belongs to player with ID:', data.player_id);
         
         this.gameState = data;
         
         // Initialize board
         this.board.initialize(data);
+
+        // IMPORTANT: Only update hand if we have hand data for this player
+        if (data.hand) {
+            console.log('Updating hand for player', this.playerId);
+            console.log('Initializing hand with:', data.hand);
+            this.hand.initialize(data.hand);
+        }
+
         
         // Initialize player's hand
         if (data.hand) {
