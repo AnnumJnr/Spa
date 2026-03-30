@@ -80,12 +80,22 @@ def game_table_view(request, game_id):
     except Game.DoesNotExist:
         return redirect('frontend:game_modes')
     
-    # Get or create guest identity
-    is_guest, user, guest_name = get_or_create_guest_identity(request)
+    # Get or create guest identity from session
+    is_guest, user, session_guest_name = get_or_create_guest_identity(request)
+    
+    # FIX: If guest_name is in query string, use that instead of session
+    url_guest_name = request.GET.get('guest_name', '')
+    
+    # Determine the guest name to use
+    if is_guest:
+        # Prefer URL guest_name (from redirect), fall back to session
+        guest_name = url_guest_name if url_guest_name else session_guest_name
+    else:
+        guest_name = ''
     
     # Find player in this game
     if is_guest:
-        # For guests, find by session
+        # For guests, find by guest_name (from URL or session)
         player = game.players.filter(
             is_guest=True,
             guest_name=guest_name
@@ -95,8 +105,13 @@ def game_table_view(request, game_id):
         player = game.players.filter(user=user).first()
     
     if not player:
-        # Player not in this game
+        # Player not in this game - redirect to game modes
         return redirect('frontend:game_modes')
+    
+    # Store the guest name in session for WebSocket connection
+    if is_guest and guest_name:
+        request.session['guest_name'] = guest_name
+        request.session.modified = True
     
     context = {
         'game_id': str(game_id),
@@ -105,7 +120,6 @@ def game_table_view(request, game_id):
         'is_guest': is_guest,
     }
     return render(request, 'game/table.html', context)
-
 
 @login_required
 def stats_dashboard_view(request):

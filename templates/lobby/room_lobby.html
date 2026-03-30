@@ -206,8 +206,15 @@ function leaveRoom() {
 
 function onGameStarting(gameId) {
     document.getElementById('loading-overlay').style.display = 'flex';
+    
+    // Build redirect URL with guest name if applicable
+    let redirectUrl = `/game/${gameId}/`;
+    if (IS_GUEST && GUEST_NAME) {
+        redirectUrl += `?guest_name=${encodeURIComponent(GUEST_NAME)}`;
+    }
+    
     setTimeout(() => {
-        window.location.href = `/game/${gameId}/`;
+        window.location.href = redirectUrl;
     }, 1000);
 }
 
