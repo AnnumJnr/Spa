@@ -115,7 +115,7 @@ def stats_dashboard_view(request):
 
 def room_lobby_view(request, room_code):
     """Private room waiting lobby."""
-    from apps.lobby.models import GameRoom
+    from apps.lobby.models import GameRoom, RoomPlayer
     from apps.game.utils import get_or_create_guest_identity
 
     try:
@@ -129,10 +129,27 @@ def room_lobby_view(request, room_code):
     if room.status == GameRoom.STATUS_FINISHED:
         return redirect('frontend:game_modes')
     
-    
-
     is_guest = not request.user.is_authenticated
-    guest_name = request.session.get('lobby_guest_name', '') if is_guest else ''
+    
+    # Get the actual guest name from the database if the user is already in the room
+    guest_name = ''
+    if is_guest:
+        # Try to find existing RoomPlayer for this session
+        session_guest_name = request.session.get('lobby_guest_name', '')
+        if session_guest_name:
+            guest_name = session_guest_name
+        else:
+            # Try to find by session ID or guest name from database
+            # For hosts, the guest name is stored in the RoomPlayer record
+            room_player = room.room_players.filter(
+                status=RoomPlayer.STATUS_ACTIVE,
+                user__isnull=True
+            ).first()
+            if room_player and room_player.guest_name:
+                guest_name = room_player.guest_name
+                # Store in session for future use
+                request.session['lobby_guest_name'] = guest_name
+                request.session.modified = True
 
     context = {
         'room_code': room.room_code,

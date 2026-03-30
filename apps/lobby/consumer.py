@@ -192,6 +192,7 @@ class LobbyConsumer(AsyncWebsocketConsumer):
         try:
             room = GameRoom.objects.get(room_code=self.room_code, status=GameRoom.STATUS_WAITING)
         except GameRoom.DoesNotExist:
+            print(f"Room {self.room_code} not found or not waiting")
             return None
 
         # Try authenticated user first
@@ -201,18 +202,23 @@ class LobbyConsumer(AsyncWebsocketConsumer):
             ).first()
             if rp:
                 return (room, rp)
-            # If authenticated user not found, don't try guest
+            # Authenticated user not in room - reject
             return None
 
-        # For guests, find by guest_name
-        if guest_name:
-            rp = RoomPlayer.objects.filter(
-                room=room, guest_name__iexact=guest_name,
-                status=RoomPlayer.STATUS_ACTIVE
-            ).first()
-            if rp:
-                return (room, rp)
+        # For guests, require guest_name
+        if not guest_name:
+            print(f"Guest connection rejected: no guest_name provided")
+            return None
 
+        # Try to find by guest_name
+        rp = RoomPlayer.objects.filter(
+            room=room, guest_name__iexact=guest_name,
+            status=RoomPlayer.STATUS_ACTIVE
+        ).first()
+        if rp:
+            return (room, rp)
+
+        print(f"Room player not found for guest_name='{guest_name}'")
         return None
 
     @database_sync_to_async

@@ -106,7 +106,11 @@ document.getElementById('join-btn').addEventListener('click', async () => {
 
         if (res.ok) {
             sessionStorage.setItem('room_player_id', data.player_id);
-            if (guestName) sessionStorage.setItem('guest_name', guestName);
+            if (guestName) {
+                sessionStorage.setItem('guest_name', guestName);
+                // Also set cookie or session for server
+               // document.cookie = `lobby_guest_name=${encodeURIComponent(guestName)}; path=/`;
+            }
             window.location.href = `/room/${ROOM_CODE}/`;
         } else {
             errorDiv.textContent = data.error || 'Failed to join.';

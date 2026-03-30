@@ -69,11 +69,13 @@ const IS_GUEST  = {{ is_guest|yesno:"true,false" }};
 const GUEST_NAME = "{{ guest_name }}";
 const MAX_PLAYERS = {{ max_players }};
 
-// Build WebSocket URL
+// Build WebSocket URL - always include guest_name if it exists (even for host)
 let wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/lobby/room/${ROOM_CODE}/`;
-const storedGuestName = GUEST_NAME || sessionStorage.getItem('guest_name') || '';
-if (storedGuestName) wsUrl += `?guest_name=${encodeURIComponent(storedGuestName)}`;
 
+// Always pass guest_name if we have one (from database)
+if (GUEST_NAME) {
+    wsUrl += `?guest_name=${encodeURIComponent(GUEST_NAME)}`;
+}
 // Set invite link
 document.getElementById('invite-link').value = `${location.origin}/join/${ROOM_CODE}/`;
 
