@@ -145,26 +145,46 @@ def room_lobby_view(request, room_code):
     
     is_guest = not request.user.is_authenticated
     
-    # Get the actual guest name from the database if the user is already in the room
+    # Get guest name from various sources
     guest_name = ''
+    
     if is_guest:
-        # Try to find existing RoomPlayer for this session
+        # Try to get guest name from session first
         session_guest_name = request.session.get('lobby_guest_name', '')
         if session_guest_name:
             guest_name = session_guest_name
-        else:
-            # Try to find by session ID or guest name from database
-            # For hosts, the guest name is stored in the RoomPlayer record
+            print(f" Guest name found in session: {guest_name}")
+        
+        # If not in session, try to find from database
+        if not guest_name:
+            # Look for any active guest player in this room
             room_player = room.room_players.filter(
                 status=RoomPlayer.STATUS_ACTIVE,
-                user__isnull=True
+                user__isnull=True,
+                is_bot=False
             ).first()
             if room_player and room_player.guest_name:
                 guest_name = room_player.guest_name
                 # Store in session for future use
                 request.session['lobby_guest_name'] = guest_name
                 request.session.modified = True
-
+                print(f" Guest name retrieved from database: {guest_name}")
+        
+        # If we still don't have a guest name, check if there's a cookie
+        if not guest_name:
+            guest_name = request.COOKIES.get('lobby_guest_name', '')
+            if guest_name:
+                print(f" Guest name found in cookie: {guest_name}")
+                # Store in session
+                request.session['lobby_guest_name'] = guest_name
+                request.session.modified = True
+    
+    # For authenticated users, ensure we have their info
+    if not is_guest:
+        print(f" Authenticated user: {request.user.username}")
+    
+    print(f" Rendering room lobby - is_guest: {is_guest}, guest_name: '{guest_name}'")
+    
     context = {
         'room_code': room.room_code,
         'room_id': str(room.id),
