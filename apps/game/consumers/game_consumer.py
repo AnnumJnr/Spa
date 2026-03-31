@@ -852,7 +852,8 @@ class GameConsumer(AsyncWebsocketConsumer):
         Broadcast updated game state to ALL players.
         Each player will receive their own personalized version with their hand.
         """
-        print("Broadcasting game state to all players...")
+        print("=== BROADCAST GAME STATE TO ALL ===")
+        print(f"Game ID: {self.game_id}")
         
         # Broadcast to group - each consumer will personalize it
         await self.channel_layer.group_send(
@@ -903,33 +904,22 @@ class GameConsumer(AsyncWebsocketConsumer):
             # Small delay to ensure database is updated
             await asyncio.sleep(0.5)
             
-            # Get and broadcast updated game state
+            # Get the updated state
             updated_state = await self.get_game_state()
             print(f"New round index: {updated_state.get('current_round')}")
             print(f"New current player: {updated_state.get('current_player_id')}")
             
-            await self.channel_layer.group_send(
-                self.game_group_name,
-                {
-                    'type': 'broadcast_event',
-                    'event': EventBuilder.game_state(updated_state)
-                }
-            )
+            # IMPORTANT: Use broadcast_game_state_to_all to send personalized state
+            await self.broadcast_game_state_to_all()
             
             # Check if this was the last round of the set
-            # We can detect this by checking if the new round index is 1 (meaning we just completed round 5)
-            # or if the game state shows the set as ended
             current_round = updated_state.get('current_round', 0)
             if current_round == 1 or current_round == 0:
-                # This means we either:
-                # - Just completed round 5 and are starting round 1 of next set (current_round=1)
-                # - The set ended and no new round exists (current_round=0)
                 print("🔄 Set transition detected - restarting stack gauge")
                 await self.start_stack_gauge(reset_first=True)
             
             # Check next turn for the new round — only if game is still active
-            game_check = await self.get_game_state()
-            if game_check.get('status') != 'finished':
+            if updated_state.get('status') != 'finished':
                 await self.check_and_trigger_next_turn()
             else:
                 print("Game is finished - skipping next turn trigger")
