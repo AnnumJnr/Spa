@@ -75,6 +75,9 @@ def game_table_view(request, game_id):
     from apps.game.models import Game, GamePlayer
     from apps.game.utils import get_or_create_guest_identity
     
+    print(f"\n=== GAME TABLE VIEW ===")
+    print(f"Game ID: {game_id}")
+    
     try:
         game = Game.objects.get(id=game_id)
     except Game.DoesNotExist:
@@ -86,10 +89,15 @@ def game_table_view(request, game_id):
     # FIX: If guest_name is in query string, use that instead of session
     url_guest_name = request.GET.get('guest_name', '')
     
+    print(f"is_guest: {is_guest}")
+    print(f"session_guest_name: {session_guest_name}")
+    print(f"url_guest_name: {url_guest_name}")
+    
     # Determine the guest name to use
     if is_guest:
         # Prefer URL guest_name (from redirect), fall back to session
         guest_name = url_guest_name if url_guest_name else session_guest_name
+        print(f"Using guest_name: {guest_name}")
     else:
         guest_name = ''
     
@@ -100,13 +108,18 @@ def game_table_view(request, game_id):
             is_guest=True,
             guest_name=guest_name
         ).first()
+        print(f"Guest player lookup: found {player.id if player else 'None'}")
     else:
         # For authenticated users
         player = game.players.filter(user=user).first()
+        print(f"Auth player lookup: found {player.id if player else 'None'}")
     
     if not player:
         # Player not in this game - redirect to game modes
+        print("❌ Player not found in game - redirecting to game modes")
         return redirect('frontend:game_modes')
+    
+    print(f"✅ Player found: {player.id}")
     
     # Store the guest name in session for WebSocket connection
     if is_guest and guest_name:

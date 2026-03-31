@@ -869,10 +869,19 @@ class GameConsumer(AsyncWebsocketConsumer):
         Called when group receives 'send_game_state_to_player' message.
         """
         try:
-            print(f"Sending game state to player {self.player_id}")
+            print(f"\n=== SENDING GAME STATE TO PLAYER ===")
+            print(f"Consumer player_id: {self.player_id}")
+            print(f"Game ID: {self.game_id}")
             
             # Get game state WITH this player's hand
             game_state = await self.get_game_state()
+            
+            # Debug: Print the hand in the state
+            if game_state.get('hand'):
+                print(f"✅ Hand has {len(game_state['hand'])} cards for player {self.player_id}")
+                print(f"   First card: {game_state['hand'][0] if game_state['hand'] else 'None'}")
+            else:
+                print(f"⚠️ No hand in game state for player {self.player_id}")
             
             # Send to this player
             await self.send(text_data=json.dumps(
@@ -883,6 +892,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             
         except Exception as e:
             print(f"Error sending game state to player {self.player_id}: {e}")
+            import traceback
+            traceback.print_exc()
     
     async def handle_round_completion(self, event_data: Dict[str, Any]):
         """Handle round completion events."""
