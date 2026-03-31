@@ -323,6 +323,12 @@ class GameEventHandler {
     onYourTurn(data) {
         console.log('Your turn:', data);
         
+        // Only enable if it's actually this player's turn
+        if (data.player_id !== this.playerId) {
+            console.log('Not my turn, ignoring');
+            return;
+        }
+        
         // Don't enable turn if we're in delay mode
         if (this.isDelayActive) {
             console.log('Delay active - deferring turn activation');
