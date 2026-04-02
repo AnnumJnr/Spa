@@ -162,71 +162,83 @@ class GameEventHandler {
         this.board.showNotification('Connection error', 'error');
     }
     
-    /**
-     * Handle game state update
-     */
-    onGameState(data) {
-        console.log('=== GAME STATE RECEIVED ===');
-        console.log('Player ID:', this.playerId);
-        console.log('Hand in state:', data.hand);
-        
-        this.gameState = data;
-        
-        // Initialize board
-        this.board.initialize(data);
-        
-        // Initialize player's hand
-        if (data.hand) {
-            console.log('Initializing hand with:', data.hand);
-            this.hand.initialize(data.hand);
-        }
-        
-        // Determine if stack should be visible
-        // Stack is disabled for practice mode AND private rooms
-        const config = window.GAME_CONFIG || {};
-        const isStackEnabled = !config.isPractice && !config.isPrivateRoom;
-        
-        if (this.stackManager) {
-            this.stackManager.setVisible(isStackEnabled);
-            console.log(`Stack visibility: ${isStackEnabled} (Practice: ${config.isPractice}, PrivateRoom: ${config.isPrivateRoom})`);
-        }
-        
-        // Update stack gauge if present
-        if (data.stack) {
-            console.log('Active stack:', data.stack);
-        }
-        
-        // Render played cards if any
-        if (data.played_cards && data.played_cards.length > 0) {
-            this.currentRoundCards = data.played_cards;
-            this.board.renderPlayedCards(data.played_cards);
-        } else {
-            this.currentRoundCards = [];
-            this.board.clearPlayedCards();
-        }
-        
-        // Update round info
-        if (data.current_round) {
-            this.board.updateRoundInfo(data.current_round, data.total_rounds || 5);
-        }
-        
-        // Check if it's player's turn (compare as strings)
-        const isMyTurn = data.current_player_id === this.playerId;
-        this.hand.setMyTurn(isMyTurn);
-        
-        // Show turn notification in a non-intrusive way
-        if (isMyTurn) {
-            this.showTurnNotification();
-        }
-        
-        // Highlight current player
-        if (data.current_player_id) {
-            this.board.highlightCurrentPlayer(data.current_player_id);
-        }
-        
-        this.hideLoading();
+/**
+ * Handle game state update
+ */
+onGameState(data) {
+    console.log('=== GAME STATE RECEIVED ===');
+    console.log('Player ID:', this.playerId);
+    console.log('Hand in state:', data.hand);
+    
+    this.gameState = data;
+    
+    // Initialize board
+    this.board.initialize(data);
+    
+    // Initialize player's hand
+    if (data.hand) {
+        console.log('Initializing hand with:', data.hand);
+        this.hand.initialize(data.hand);
     }
-
+    
+    // Determine if stack should be visible
+    const config = window.GAME_CONFIG || {};
+    const isStackEnabled = !config.isPractice && !config.isPrivateRoom;
+    
+    if (this.stackManager) {
+        this.stackManager.setVisible(isStackEnabled);
+        console.log(`Stack visibility: ${isStackEnabled} (Practice: ${config.isPractice}, PrivateRoom: ${config.isPrivateRoom})`);
+    }
+    
+    // Update stack gauge if present
+    if (data.stack) {
+        console.log('Active stack:', data.stack);
+    }
+    
+    // CRITICAL FIX: Only update played cards if this is initial load or round transition
+    const backendCardCount = (data.played_cards || []).length;
+    const frontendCardCount = this.currentRoundCards.length;
+    
+    // Case 1: Initial load - render cards from state
+    if (backendCardCount > 0 && frontendCardCount === 0) {
+        console.log('Initial load - rendering cards from state');
+        this.currentRoundCards = data.played_cards;
+        this.board.clearPlayedCards();
+        this.board.renderPlayedCards(data.played_cards);
+    }
+    // Case 2: Round transition - backend has 0 cards, we have cards
+    else if (backendCardCount === 0 && frontendCardCount > 0) {
+        console.log('Round transition - clearing cards');
+        this.currentRoundCards = [];
+        this.board.clearPlayedCards();
+    }
+    // Case 3: During round - trust card_played events, ignore game_state
+    else {
+        console.log('During round - keeping cards from card_played events');
+        // Don't update - card_played events handle this
+    }
+    
+    // Update round info
+    if (data.current_round) {
+        this.board.updateRoundInfo(data.current_round, data.total_rounds || 5);
+    }
+    
+    // Check if it's player's turn (compare as strings)
+    const isMyTurn = data.current_player_id === this.playerId;
+    this.hand.setMyTurn(isMyTurn);
+    
+    // Show turn notification in a non-intrusive way
+    if (isMyTurn) {
+        this.showTurnNotification();
+    }
+    
+    // Highlight current player
+    if (data.current_player_id) {
+        this.board.highlightCurrentPlayer(data.current_player_id);
+    }
+    
+    this.hideLoading();
+}
 
     /**
      * Show turn notification without blocking the board
