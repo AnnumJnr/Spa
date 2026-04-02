@@ -98,6 +98,12 @@ class GameBoard {
         if (typeof window.updateMobileScores === 'function') {
             window.updateMobileScores();
         }
+
+        // Update mobile scores
+        if (typeof window.updateMobileScores === 'function') {
+            window.updateMobileScores();
+        }
+
     }
     
     /**

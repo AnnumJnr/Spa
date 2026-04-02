@@ -88,6 +88,14 @@
         </div>
     </div>
 
+    <!-- Mobile Score Ribbon -->
+    <div id="mobile-score-ribbon" class="mobile-score-ribbon">
+        <div id="mobile-scores-list" class="mobile-score-ribbon-content">
+            <!-- Scores will be populated dynamically -->
+        </div>
+    </div>
+    <button id="mobile-score-toggle" class="mobile-score-toggle">🏆</button>
+
     <!-- Notifications Container -->
     <div class="notifications" id="notifications">
         <!-- Dynamic notifications will appear here -->
@@ -211,6 +219,52 @@
             scorePopup.classList.remove('show');
         }
     });
+
+
+    // Mobile Score Ribbon functionality
+    function initMobileScoreRibbon() {
+        const ribbon = document.getElementById('mobile-score-ribbon');
+        const toggle = document.getElementById('mobile-score-toggle');
+        
+        if (!toggle) return;
+        
+        toggle.addEventListener('click', () => {
+            ribbon.classList.toggle('open');
+        });
+        
+        // Close ribbon when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!ribbon.contains(e.target) && !toggle.contains(e.target)) {
+                ribbon.classList.remove('open');
+            }
+        });
+    }
+
+    // Update mobile scores from board data
+    function updateMobileScores() {
+        const container = document.getElementById('mobile-scores-list');
+        if (!container) return;
+        
+        const players = window.gameController?.board?.players || [];
+        const currentPlayerId = window.gameController?.playerId;
+        
+        container.innerHTML = players.map(player => `
+            <div class="mobile-score-item ${player.id === currentPlayerId ? 'current-player' : ''}">
+                <span class="mobile-score-name">${player.display_name || player.name}</span>
+                <span class="mobile-score-value">${player.score || 0}</span>
+            </div>
+        `).join('');
+    }
+
+    // Call this when scores update
+    if (window.updateMobileScores) {
+        window.updateMobileScores = updateMobileScores;
+    } else {
+        window.updateMobileScores = updateMobileScores;
+    }
+
+    initMobileScoreRibbon();
+
 })();
 </script>
 {% endblock %}
