@@ -691,6 +691,69 @@
   }
 }
 
+/* ========== MOBILE SCROLLABLE GAME AREA ========== */
+@media (max-width: 767px) {
+  .game-container {
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  }
+  
+  /* Ensure content doesn't get cut off */
+  .player-area {
+    padding-bottom: calc(var(--space-6) + 20px);
+    margin-bottom: env(safe-area-inset-bottom, 0);
+  }
+  
+  /* Make hand scrollable horizontally */
+  .hand {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-2);
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  
+  /* Ensure cards are visible and tappable */
+  .hand .card {
+    flex-shrink: 0;
+    margin-left: -15px;
+  }
+  
+  .hand .card:first-child {
+    margin-left: 0;
+  }
+  
+  /* Play controls should be at the bottom with enough padding */
+  .play-controls {
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-2);
+  }
+  
+  /* Stack container positioning on mobile */
+  .stack-container {
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  /* Ensure the entire content is reachable */
+  .player-area {
+    min-height: auto;
+    padding: var(--space-4) var(--space-3) calc(var(--space-8) + 20px) var(--space-3);
+  }
+  
+  /* Fix for notch/hole-punch displays */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .player-area {
+      padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom));
+    }
+  }
+}
+
 /* ========== TABLET ========== */
 @media (min-width: 768px) and (max-width: 1023px) {
   .card {
