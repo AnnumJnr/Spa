@@ -75,62 +75,47 @@ def game_table_view(request, game_id):
     from apps.game.models import Game, GamePlayer
     from apps.game.utils import get_or_create_guest_identity
     
-    print(f"\n=== GAME TABLE VIEW ===")
-    print(f"Game ID: {game_id}")
-    
     try:
         game = Game.objects.get(id=game_id)
     except Game.DoesNotExist:
         return redirect('frontend:game_modes')
     
-    # Get or create guest identity from session
+    # Get or create guest identity
     is_guest, user, session_guest_name = get_or_create_guest_identity(request)
     
-    # FIX: If guest_name is in query string, use that instead of session
+    # Get guest name from URL query string (for private room invites)
     url_guest_name = request.GET.get('guest_name', '')
-    
-    print(f"is_guest: {is_guest}")
-    print(f"session_guest_name: {session_guest_name}")
-    print(f"url_guest_name: {url_guest_name}")
     
     # Determine the guest name to use
     if is_guest:
-        # Prefer URL guest_name (from redirect), fall back to session
         guest_name = url_guest_name if url_guest_name else session_guest_name
-        print(f"Using guest_name: {guest_name}")
     else:
         guest_name = ''
     
     # Find player in this game
     if is_guest:
-        # For guests, find by guest_name (from URL or session)
         player = game.players.filter(
             is_guest=True,
             guest_name=guest_name
         ).first()
-        print(f"Guest player lookup: found {player.id if player else 'None'}")
     else:
-        # For authenticated users
         player = game.players.filter(user=user).first()
-        print(f"Auth player lookup: found {player.id if player else 'None'}")
     
     if not player:
-        # Player not in this game - redirect to game modes
-        print("❌ Player not found in game - redirecting to game modes")
         return redirect('frontend:game_modes')
     
-    print(f"✅ Player found: {player.id}")
-    
-    # Store the guest name in session for WebSocket connection
-    if is_guest and guest_name:
-        request.session['guest_name'] = guest_name
-        request.session.modified = True
+    # Determine game type for stack visibility
+    is_private_room = False
+    if hasattr(game, 'room') and game.room:
+        is_private_room = game.room.mode == 'private'
     
     context = {
         'game_id': str(game_id),
         'player_id': str(player.id),
         'guest_name': guest_name if is_guest else '',
         'is_guest': is_guest,
+        'is_private_room': is_private_room,
+        'is_practice': game.is_practice,
     }
     return render(request, 'game/table.html', context)
 

@@ -14,6 +14,8 @@
         playerId: "{{ player_id }}",
         guestName: "{{ guest_name }}",
         isGuest: {% if is_guest %}true{% else %}false{% endif %},
+        isPrivateRoom: {% if is_private_room %}true{% else %}false{% endif %},
+        isPractice: {% if is_practice %}true{% else %}false{% endif %},
         wsProtocol: window.location.protocol === 'https:' ? 'wss:' : 'ws:',
         wsHost: window.location.host
     };

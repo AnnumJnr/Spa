@@ -423,7 +423,8 @@ class StackManager {
      */
     setVisible(visible) {
         if (this.stackContainer) {
-            this.stackContainer.style.display = visible ? 'block' : 'none';
+            this.stackContainer.style.display = visible ? 'flex' : 'none';
+            console.log(`Stack container ${visible ? 'shown' : 'hidden'}`);
         }
     }
 }

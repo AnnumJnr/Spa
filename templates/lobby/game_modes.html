@@ -15,20 +15,6 @@
             <span class="mode-badge">Solo</span>
         </a>
         
-        <a href="{% url 'frontend:quick_match' %}" class="mode-card">
-            <div class="mode-icon">⚡</div>
-            <h2>Quick Match</h2>
-            <p>Instant 1v1 game</p>
-            <span class="mode-badge">1v1</span>
-        </a>
-        
-        <a href="{% url 'frontend:multiplayer' %}" class="mode-card">
-            <div class="mode-icon">👥</div>
-            <h2>Multiplayer</h2>
-            <p>Join open lobby</p>
-            <span class="mode-badge">2-4 Players</span>
-        </a>
-        
         <a href="{% url 'frontend:create_room' %}" class="mode-card">
             <div class="mode-icon">🔒</div>
             <h2>Private Room</h2>
@@ -36,6 +22,23 @@
             <span class="mode-badge">Invite Only</span>
         </a>
     </div>
+    
+    <!-- Hidden/Disabled modes (commented out for now) -->
+    <!-- 
+    <a href="{% url 'frontend:quick_match' %}" class="mode-card disabled">
+        <div class="mode-icon">⚡</div>
+        <h2>Quick Match</h2>
+        <p>Coming Soon</p>
+        <span class="mode-badge">1v1</span>
+    </a>
+    
+    <a href="{% url 'frontend:multiplayer' %}" class="mode-card disabled">
+        <div class="mode-icon">👥</div>
+        <h2>Multiplayer</h2>
+        <p>Coming Soon</p>
+        <span class="mode-badge">2-4 Players</span>
+    </a>
+    -->
 </div>
 {% endblock %}
 
@@ -59,6 +62,13 @@
 .mode-card:hover .mode-badge {
     background: var(--accent-gold);
     color: var(--bg-primary);
+}
+
+/* Style for disabled modes if you want to show them as "Coming Soon" */
+.mode-card.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 </style>
 {% endblock %}
