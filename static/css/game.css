@@ -775,6 +775,124 @@
   }
 }
 
+/* ========== MOBILE SCORE RIBBON ========== */
+.mobile-score-ribbon {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, var(--mahogany-dark) 0%, var(--mahogany) 100%);
+    border-top: 3px solid var(--accent-gold);
+    border-radius: 20px 20px 0 0;
+    padding: var(--space-4);
+    z-index: 1000;
+    transform: translateY(100%);
+    transition: transform 0.3s ease-out;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.mobile-score-ribbon.open {
+    transform: translateY(0);
+}
+
+.mobile-score-ribbon-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--accent-gold);
+}
+
+.mobile-score-ribbon-title {
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--accent-gold);
+}
+
+.mobile-score-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--text-xl);
+    cursor: pointer;
+    padding: var(--space-1) var(--space-2);
+}
+
+.mobile-score-close:active {
+    color: var(--accent-gold);
+}
+
+.mobile-score-ribbon-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.mobile-score-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-md);
+    border-left: 3px solid transparent;
+}
+
+.mobile-score-item.current-player {
+    border-left-color: var(--accent-gold);
+    background: rgba(233, 195, 73, 0.1);
+}
+
+.mobile-score-name {
+    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.mobile-score-value {
+    font-family: var(--font-serif);
+    font-weight: var(--font-bold);
+    font-size: var(--text-lg);
+    color: var(--accent-gold);
+}
+
+/* Score Toggle Button */
+.mobile-score-toggle {
+    position: fixed;
+    bottom: 80px;
+    right: 16px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    z-index: 1001;
+    font-size: 1.3rem;
+    color: var(--mahogany-dark);
+    transition: all var(--transition-fast);
+}
+
+.mobile-score-toggle:active {
+    transform: scale(0.95);
+}
+
+@media (min-width: 768px) {
+    .mobile-score-ribbon,
+    .mobile-score-toggle {
+        display: none;
+    }
+}
+
+
 /* ========== DESKTOP ========== */
 @media (min-width: 1024px) {
   .card {

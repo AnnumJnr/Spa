@@ -78,7 +78,6 @@ class GameBoard {
         if (!this.scoresListContainer) return;
         
         const scoresHTML = this.players.map(player => {
-            // FIXED: use this.currentPlayerId instead of undefined playerId
             const isCurrentPlayer = player.id === this.currentPlayerId;
             const isActive = player.is_active !== false;
             
@@ -95,15 +94,10 @@ class GameBoard {
         
         this.scoresListContainer.innerHTML = scoresHTML;
 
+        // Update mobile scores if the function exists
         if (typeof window.updateMobileScores === 'function') {
             window.updateMobileScores();
         }
-
-        // Update mobile scores
-        if (typeof window.updateMobileScores === 'function') {
-            window.updateMobileScores();
-        }
-
     }
     
     /**

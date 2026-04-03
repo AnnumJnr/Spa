@@ -592,6 +592,40 @@ onGameState(data) {
         
         this.board.showNotification(`Lead changed to ${leadName}!`, 'warning', 2500);
     }
+
+    /**
+     * Update mobile scores display
+     */
+    updateMobileScores() {
+        const container = document.getElementById('mobile-scores-list');
+        if (!container) return;
+        
+        if (!this.board || !this.board.players) return;
+        
+        const players = this.board.players;
+        const currentPlayerId = this.playerId;
+        
+        container.innerHTML = players.map(player => `
+            <div class="mobile-score-item ${player.id === currentPlayerId ? 'current-player' : ''}">
+                <span class="mobile-score-name">${this.escapeHtml(player.display_name || player.name)}</span>
+                <span class="mobile-score-value">${player.score || 0}</span>
+            </div>
+        `).join('');
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
     
     // ========== UI Helpers ==========
     
