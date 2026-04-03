@@ -120,6 +120,20 @@
         </div>
     </div>
 
+    <!-- Mobile Score Ribbon -->
+    <div id="mobile-score-ribbon" class="mobile-score-ribbon">
+        <div class="mobile-score-ribbon-header">
+            <span class="mobile-score-ribbon-title">Scores</span>
+            <button id="mobile-score-close" class="mobile-score-close">✕</button>
+        </div>
+        <div id="mobile-scores-list" class="mobile-score-ribbon-content">
+            <!-- Scores will be populated dynamically -->
+        </div>
+    </div>
+    <button id="mobile-score-toggle" class="mobile-score-toggle">
+        🏆
+    </button>
+
 </div>
 
 
@@ -158,113 +172,139 @@
 <!-- Mobile score toggle functionality -->
 <script>
 (function() {
+    // DOM Elements
     const scoreBtn = document.getElementById('mobile-score-btn');
     const scorePopup = document.getElementById('mobile-scores-popup');
     const scoreClose = document.getElementById('mobile-scores-close');
     const mobileScoresList = document.getElementById('mobile-scores-list');
+    const ribbon = document.getElementById('mobile-score-ribbon');
+    const ribbonToggle = document.getElementById('mobile-score-toggle');
+    const ribbonClose = document.getElementById('mobile-score-close');
     
-    // Show mobile score button only on mobile
+    // ========== POPUP SYSTEM (Your existing code) ==========
     if (window.innerWidth <= 767) {
-        scoreBtn.style.display = 'flex';
+        if (scoreBtn) scoreBtn.style.display = 'flex';
     }
     
-    // Toggle score popup
-    scoreBtn?.addEventListener('click', () => {
-        scorePopup.classList.add('show');
-        updateMobileScores();
-    });
-    
-    // Close popup
-    scoreClose?.addEventListener('click', () => {
-        scorePopup.classList.remove('show');
-    });
-    
-    // Close on background click
-    scorePopup?.addEventListener('click', (e) => {
-        if (e.target === scorePopup) {
-            scorePopup.classList.remove('show');
-        }
-    });
-    
-    // Update mobile scores from desktop scores
-    function updateMobileScores() {
-        const desktopScores = document.querySelectorAll('.scores-panel .score-item');
-        if (!mobileScoresList || desktopScores.length === 0) return;
-        
-        const scoresHTML = Array.from(desktopScores).map(item => {
-            const name = item.querySelector('.score-name')?.textContent || '';
-            const value = item.querySelector('.score-value')?.textContent || '0';
-            const isCurrent = item.classList.contains('current-player');
-            
-            return `
-                <div class="mobile-score-item ${isCurrent ? 'current-player' : ''}">
-                    <div class="mobile-score-name">${name}</div>
-                    <div class="mobile-score-value">${value}</div>
-                </div>
-            `;
-        }).join('');
-        
-        mobileScoresList.innerHTML = scoresHTML;
+    if (scoreBtn) {
+        scoreBtn.addEventListener('click', () => {
+            if (scorePopup) scorePopup.classList.add('show');
+            updateMobileScores();
+        });
     }
     
-    // Expose function globally so board.js can call it
-    window.updateMobileScores = updateMobileScores;
+    if (scoreClose) {
+        scoreClose.addEventListener('click', () => {
+            if (scorePopup) scorePopup.classList.remove('show');
+        });
+    }
     
-    // Update on window resize
-    window.addEventListener('resize', () => {
-        if (window.innerWidth <= 767) {
-            scoreBtn.style.display = 'flex';
-        } else {
-            scoreBtn.style.display = 'none';
-            scorePopup.classList.remove('show');
-        }
-    });
-
-
-    // Mobile Score Ribbon functionality
-    function initMobileScoreRibbon() {
-        const ribbon = document.getElementById('mobile-score-ribbon');
-        const toggle = document.getElementById('mobile-score-toggle');
-        
-        if (!toggle) return;
-        
-        toggle.addEventListener('click', () => {
+    if (scorePopup) {
+        scorePopup.addEventListener('click', (e) => {
+            if (e.target === scorePopup) {
+                scorePopup.classList.remove('show');
+            }
+        });
+    }
+    
+    // ========== RIBBON SYSTEM (Your new addition) ==========
+    if (ribbonToggle && ribbon) {
+        ribbonToggle.addEventListener('click', () => {
             ribbon.classList.toggle('open');
         });
-        
-        // Close ribbon when clicking outside
+    }
+    
+    if (ribbonClose && ribbon) {
+        ribbonClose.addEventListener('click', () => {
+            ribbon.classList.remove('open');
+        });
+    }
+    
+    if (ribbon) {
         document.addEventListener('click', (e) => {
-            if (!ribbon.contains(e.target) && !toggle.contains(e.target)) {
+            if (ribbon.classList.contains('open') && 
+                !ribbon.contains(e.target) && 
+                ribbonToggle && !ribbonToggle.contains(e.target)) {
                 ribbon.classList.remove('open');
             }
         });
     }
-
-    // Update mobile scores from board data
-    function updateMobileScores() {
-        const container = document.getElementById('mobile-scores-list');
-        if (!container) return;
+    
+    // ========== SINGLE updateMobileScores FUNCTION ==========
+    window.updateMobileScores = function() {
+        // Update Popup
+        if (mobileScoresList) {
+            const gameController = window.gameController;
+            
+            if (gameController && gameController.board && gameController.board.players) {
+                // Use live data from game controller
+                const players = gameController.board.players;
+                const currentPlayerId = gameController.playerId;
+                
+                mobileScoresList.innerHTML = players.map(player => `
+                    <div class="mobile-score-item ${player.id === currentPlayerId ? 'current-player' : ''}">
+                        <div class="mobile-score-name">${escapeHtml(player.display_name || player.name)}</div>
+                        <div class="mobile-score-value">${player.score || 0}</div>
+                    </div>
+                `).join('');
+            } else {
+                // Fallback: get scores from desktop scores panel
+                const desktopScores = document.querySelectorAll('.scores-panel .score-item');
+                if (desktopScores.length > 0) {
+                    mobileScoresList.innerHTML = Array.from(desktopScores).map(item => {
+                        const name = item.querySelector('.score-name')?.textContent || '';
+                        const value = item.querySelector('.score-value')?.textContent || '0';
+                        const isCurrent = item.classList.contains('current-player');
+                        return `
+                            <div class="mobile-score-item ${isCurrent ? 'current-player' : ''}">
+                                <div class="mobile-score-name">${escapeHtml(name)}</div>
+                                <div class="mobile-score-value">${value}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+        }
         
-        const players = window.gameController?.board?.players || [];
-        const currentPlayerId = window.gameController?.playerId;
-        
-        container.innerHTML = players.map(player => `
-            <div class="mobile-score-item ${player.id === currentPlayerId ? 'current-player' : ''}">
-                <span class="mobile-score-name">${player.display_name || player.name}</span>
-                <span class="mobile-score-value">${player.score || 0}</span>
-            </div>
-        `).join('');
+        // Update Ribbon
+        const ribbonList = document.getElementById('mobile-scores-list-ribbon');
+        if (ribbonList) {
+            const gameController = window.gameController;
+            if (gameController && gameController.board && gameController.board.players) {
+                const players = gameController.board.players;
+                const currentPlayerId = gameController.playerId;
+                
+                ribbonList.innerHTML = players.map(player => `
+                    <div class="mobile-score-item ${player.id === currentPlayerId ? 'current-player' : ''}">
+                        <span class="mobile-score-name">${escapeHtml(player.display_name || player.name)}</span>
+                        <span class="mobile-score-value">${player.score || 0}</span>
+                    </div>
+                `).join('');
+            }
+        }
+    };
+    
+    // Helper function
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
     }
-
-    // Call this when scores update
-    if (window.updateMobileScores) {
-        window.updateMobileScores = updateMobileScores;
-    } else {
-        window.updateMobileScores = updateMobileScores;
-    }
-
-    initMobileScoreRibbon();
-
+    
+    // Update on window resize
+    window.addEventListener('resize', () => {
+        if (window.innerWidth <= 767) {
+            if (scoreBtn) scoreBtn.style.display = 'flex';
+        } else {
+            if (scoreBtn) scoreBtn.style.display = 'none';
+            if (scorePopup) scorePopup.classList.remove('show');
+            if (ribbon) ribbon.classList.remove('open');
+        }
+    });
 })();
 </script>
 {% endblock %}
