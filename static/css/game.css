@@ -567,6 +567,103 @@
   color: var(--accent-gold);
 }
 
+/* ========== MOBILE SCORES POPUP ========== */
+#mobile-score-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-dark) 100%);
+    border: none;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    font-size: 1.3rem;
+    color: var(--mahogany-dark);
+    transition: all var(--transition-fast);
+}
+
+#mobile-score-btn:active {
+    transform: scale(0.95);
+}
+
+.mobile-scores-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-scores-popup.show {
+    display: flex;
+}
+
+.mobile-scores-content {
+    background: linear-gradient(135deg, var(--mahogany) 0%, var(--mahogany-dark) 100%);
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 320px;
+    width: 90%;
+    border: 2px solid var(--accent-gold);
+    box-shadow: var(--shadow-xl);
+}
+
+.mobile-scores-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent-gold);
+}
+
+.mobile-scores-title {
+    color: var(--accent-gold);
+    font-size: 1.3rem;
+    font-weight: bold;
+    font-family: var(--font-serif);
+}
+
+.mobile-scores-close {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.mobile-scores-close:active {
+    background: rgba(255,255,255,0.1);
+}
+
+.mobile-scores-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+
 /* ========== RESPONSIVE (Mobile) ========== */
 @media (max-width: 767px) {
   .game-container::before {
@@ -775,90 +872,6 @@
   }
 }
 
-/* ========== MOBILE SCORE RIBBON ========== */
-.mobile-score-ribbon {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(to top, var(--mahogany-dark) 0%, var(--mahogany) 100%);
-    border-top: 3px solid var(--accent-gold);
-    border-radius: 20px 20px 0 0;
-    padding: var(--space-4);
-    z-index: 1000;
-    transform: translateY(100%);
-    transition: transform 0.3s ease-out;
-    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
-}
-
-.mobile-score-ribbon.open {
-    transform: translateY(0);
-}
-
-.mobile-score-ribbon-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-3);
-    padding-bottom: var(--space-2);
-    border-bottom: 1px solid var(--accent-gold);
-}
-
-.mobile-score-ribbon-title {
-    font-family: var(--font-serif);
-    font-size: var(--text-lg);
-    font-weight: var(--font-bold);
-    color: var(--accent-gold);
-}
-
-.mobile-score-close {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: var(--text-xl);
-    cursor: pointer;
-    padding: var(--space-1) var(--space-2);
-}
-
-.mobile-score-close:active {
-    color: var(--accent-gold);
-}
-
-.mobile-score-ribbon-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.mobile-score-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-3) var(--space-4);
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: var(--radius-md);
-    border-left: 3px solid transparent;
-}
-
-.mobile-score-item.current-player {
-    border-left-color: var(--accent-gold);
-    background: rgba(233, 195, 73, 0.1);
-}
-
-.mobile-score-name {
-    font-weight: var(--font-medium);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-}
-
-.mobile-score-value {
-    font-family: var(--font-serif);
-    font-weight: var(--font-bold);
-    font-size: var(--text-lg);
-    color: var(--accent-gold);
-}
 
 /* Score Toggle Button */
 .mobile-score-toggle {
